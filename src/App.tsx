@@ -12,6 +12,7 @@ import LiveMatchPage from '@/pages/LiveMatchPage'
 import MatchReviewPage from '@/pages/MatchReviewPage'
 import ProfilePage from '@/pages/ProfilePage'
 import ButtonConfigPage from '@/pages/ButtonConfigPage'
+import AuthCallbackPage from '@/pages/AuthCallbackPage'
 
 export default function App() {
   const { initialize, loading } = useAuthStore()
@@ -33,6 +34,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/registro" element={<RegisterPage />} />
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route
           element={
             <ProtectedRoute>
