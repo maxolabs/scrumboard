@@ -55,19 +55,19 @@ export const TEAM_CATEGORIES = [
 
 export const DEFAULT_BUTTONS: ButtonConfig[] = [
   // Scoring — single buttons, team selected via popup
-  { id: 'try', category: 'try', label: 'Try', type: 'scoring', color: 'default', points: 5 },
-  { id: 'conversion', category: 'conversion', label: 'Conversión', type: 'scoring', color: 'default', points: 2 },
-  { id: 'penalty-kick', category: 'penalty_kick', label: 'Penal (gol)', type: 'scoring', color: 'default', points: 3 },
-  { id: 'drop-goal', category: 'drop_goal', label: 'Drop', type: 'scoring', color: 'default', points: 3 },
+  { id: 'try', category: 'try', label: 'Try', type: 'scoring', color: 'default', visible: true, points: 5 },
+  { id: 'conversion', category: 'conversion', label: 'Conversión', type: 'scoring', color: 'default', visible: true, points: 2 },
+  { id: 'penalty-kick', category: 'penalty_kick', label: 'Penal (gol)', type: 'scoring', color: 'default', visible: true, points: 3 },
+  { id: 'drop-goal', category: 'drop_goal', label: 'Drop', type: 'scoring', color: 'default', visible: true, points: 3 },
   // Penalties (infractions, no points)
-  { id: 'pen-for', category: 'penalty_for', label: 'Penal a Favor', type: 'penalty', color: 'default', team: 'ours' },
-  { id: 'pen-against', category: 'penalty_against', label: 'Penal en Contra', type: 'penalty', color: 'default', team: 'theirs' },
+  { id: 'pen-for', category: 'penalty_for', label: 'Penal a Favor', type: 'penalty', color: 'default', visible: true, team: 'ours' },
+  { id: 'pen-against', category: 'penalty_against', label: 'Penal en Contra', type: 'penalty', color: 'default', visible: true, team: 'theirs' },
   // Set pieces — team+outcome selected via dialog
-  { id: 'scrum', category: 'scrum', label: 'Scrum', type: 'set_piece', color: 'default' },
-  { id: 'lineout', category: 'lineout', label: 'Line', type: 'set_piece', color: 'default' },
-  { id: 'ruck', category: 'ruck', label: 'Ruck', type: 'set_piece', color: 'default' },
-  { id: 'maul', category: 'maul', label: 'Maul', type: 'set_piece', color: 'default' },
+  { id: 'scrum', category: 'scrum', label: 'Scrum', type: 'set_piece', color: 'default', visible: true },
+  { id: 'lineout', category: 'lineout', label: 'Line', type: 'set_piece', color: 'default', visible: true },
+  { id: 'ruck', category: 'ruck', label: 'Ruck', type: 'set_piece', color: 'default', visible: true },
+  { id: 'maul', category: 'maul', label: 'Maul', type: 'set_piece', color: 'default', visible: true },
   // Observations — kept minimal
-  { id: 'obs-general', category: 'obs_general', label: 'Obs. General', type: 'observation', color: 'default' },
-  { id: 'obs-player', category: 'obs_player', label: 'Obs. Jugador', type: 'observation', color: 'default' },
+  { id: 'obs-general', category: 'obs_general', label: 'Obs. General', type: 'observation', color: 'default', visible: true },
+  { id: 'obs-player', category: 'obs_player', label: 'Obs. Jugador', type: 'observation', color: 'default', visible: true },
 ]

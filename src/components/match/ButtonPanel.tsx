@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMatchStore } from '@/stores/matchStore'
+import { useButtonLayoutStore } from '@/stores/buttonLayoutStore'
 import type { ButtonConfig, EventTeam } from '@/lib/types'
-import { DEFAULT_BUTTONS, CATEGORY_LABELS, HALF_LABELS, TEAM_LABELS } from '@/lib/constants'
+import { CATEGORY_LABELS, HALF_LABELS, TEAM_LABELS } from '@/lib/constants'
 import { EventDialog } from './EventDialog'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -9,10 +10,13 @@ import { toast } from 'sonner'
 
 export function ButtonPanel() {
   const { addEvent, match, elapsedSeconds } = useMatchStore()
+  const { buttons: allButtons, load } = useButtonLayoutStore()
   const [dialogButton, setDialogButton] = useState<ButtonConfig | null>(null)
   const [teamPickButton, setTeamPickButton] = useState<ButtonConfig | null>(null)
 
-  const buttons = DEFAULT_BUTTONS
+  useEffect(() => { load() }, [load])
+
+  const buttons = allButtons.filter(btn => btn.visible !== false)
   const isMatchActive = match && ['first_half', 'second_half'].includes(match.status)
 
   const handleTap = (btn: ButtonConfig) => {

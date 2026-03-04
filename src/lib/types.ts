@@ -70,6 +70,7 @@ export interface ButtonConfig {
   label: string
   type: ButtonType
   color: string
+  visible?: boolean
   team?: EventTeam
   points?: number
 }
