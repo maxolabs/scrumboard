@@ -2,7 +2,6 @@ import { useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useMatchStore } from '@/stores/matchStore'
 import { ScoreCard } from './ScoreCard'
-import { MatchTimer } from './MatchTimer'
 import { ButtonPanel } from './ButtonPanel'
 import { EventFeed } from './EventFeed'
 import { Button } from '@/components/ui/button'
@@ -31,28 +30,34 @@ export function LiveMatchView() {
       <div className="flex flex-col items-center justify-center min-h-screen gap-4 p-4">
         <p className="text-lg font-medium">Partido finalizado</p>
         <Link to={`/partido/${match.id}/revision`}>
-          <Button className="gap-1">
+          <Button className="gap-1.5 rounded-xl">
             <FileText className="h-4 w-4" /> Ver revisión
           </Button>
         </Link>
         <Link to="/">
-          <Button variant="outline">Volver al inicio</Button>
+          <Button variant="ghost">Volver al inicio</Button>
         </Link>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex flex-col p-3 gap-3 max-w-lg mx-auto">
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
+    <div className="min-h-screen flex flex-col p-4 gap-4 max-w-lg mx-auto">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="icon" className="rounded-xl" onClick={() => navigate('/')}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <span className="text-sm text-muted-foreground">Partido en vivo</span>
+        <span className="text-sm font-medium text-muted-foreground">Partido en vivo</span>
       </div>
+
+      {/* Score + Timer (merged) */}
       <ScoreCard />
-      <MatchTimer />
+
+      {/* Buttons */}
       <ButtonPanel />
+
+      {/* Events */}
       <EventFeed />
     </div>
   )

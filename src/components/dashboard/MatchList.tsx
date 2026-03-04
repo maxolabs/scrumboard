@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import type { Match } from '@/lib/types'
-import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { CreateMatchDialog } from './CreateMatchDialog'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { ChevronRight } from 'lucide-react'
 
 const STATUS_LABELS: Record<string, string> = {
   pending: 'Pendiente',
@@ -45,13 +45,17 @@ export function MatchList() {
   }, [user])
 
   if (loading) {
-    return <div className="text-muted-foreground">Cargando partidos...</div>
+    return (
+      <div className="flex justify-center py-12">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+      </div>
+    )
   }
 
   return (
     <div className="space-y-4">
       <CreateMatchDialog />
-      <div className="grid gap-3">
+      <div className="space-y-2">
         {matches.map(match => {
           const teamName = match.team?.name ?? 'Mi equipo'
           const isLive = ['first_half', 'half_time', 'second_half'].includes(match.status)
@@ -61,37 +65,39 @@ export function MatchList() {
 
           return (
             <Link key={match.id} to={linkTo}>
-              <Card className="hover:bg-accent/50 transition-colors cursor-pointer">
-                <CardContent className="pt-4 flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">
-                      {match.is_home
-                        ? `${teamName} vs ${match.opponent_name}`
-                        : `${match.opponent_name} vs ${teamName}`
-                      }
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {match.team?.category && `${match.team.category} · `}
-                      {format(new Date(match.match_date), "d 'de' MMMM yyyy", { locale: es })}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {(isLive || match.status === 'finished') && (
-                      <span className="text-lg font-bold tabular-nums">
-                        {match.home_score} - {match.away_score}
-                      </span>
-                    )}
-                    <Badge variant={STATUS_VARIANT[match.status]}>
-                      {STATUS_LABELS[match.status]}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="flex items-center justify-between bg-card border border-border rounded-xl px-4 py-3.5 hover:bg-accent/50 transition-colors cursor-pointer group">
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm truncate">
+                    {match.is_home
+                      ? `${teamName} vs ${match.opponent_name}`
+                      : `${match.opponent_name} vs ${teamName}`
+                    }
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {match.team?.category && `${match.team.category} · `}
+                    {format(new Date(match.match_date), "d 'de' MMMM yyyy", { locale: es })}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  {(isLive || match.status === 'finished') && (
+                    <span className="text-lg font-bold tabular-nums">
+                      {match.home_score} - {match.away_score}
+                    </span>
+                  )}
+                  <Badge variant={STATUS_VARIANT[match.status]} className="text-[10px]">
+                    {STATUS_LABELS[match.status]}
+                  </Badge>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                </div>
+              </div>
             </Link>
           )
         })}
         {matches.length === 0 && (
-          <p className="text-muted-foreground text-sm">No hay partidos aún. Creá uno nuevo.</p>
+          <div className="text-center py-12 text-muted-foreground">
+            <p className="text-sm">No hay partidos aún.</p>
+            <p className="text-xs mt-1">Creá uno nuevo para empezar.</p>
+          </div>
         )}
       </div>
     </div>

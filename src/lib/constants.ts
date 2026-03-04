@@ -54,30 +54,20 @@ export const TEAM_CATEGORIES = [
 ]
 
 export const DEFAULT_BUTTONS: ButtonConfig[] = [
-  // Scoring — ours
-  { id: 'try-ours', category: 'try', label: 'Try Nuestro', type: 'scoring', color: 'bg-green-600', team: 'ours', points: 5 },
-  { id: 'try-theirs', category: 'try', label: 'Try Rival', type: 'scoring', color: 'bg-red-600', team: 'theirs', points: 5 },
-  { id: 'conv-ours', category: 'conversion', label: 'Conv. Nuestro', type: 'scoring', color: 'bg-green-500', team: 'ours', points: 2 },
-  { id: 'conv-theirs', category: 'conversion', label: 'Conv. Rival', type: 'scoring', color: 'bg-red-500', team: 'theirs', points: 2 },
-  { id: 'pk-ours', category: 'penalty_kick', label: 'Penal Nuestro', type: 'scoring', color: 'bg-green-500', team: 'ours', points: 3 },
-  { id: 'pk-theirs', category: 'penalty_kick', label: 'Penal Rival', type: 'scoring', color: 'bg-red-500', team: 'theirs', points: 3 },
-  { id: 'drop-ours', category: 'drop_goal', label: 'Drop Nuestro', type: 'scoring', color: 'bg-green-500', team: 'ours', points: 3 },
-  { id: 'drop-theirs', category: 'drop_goal', label: 'Drop Rival', type: 'scoring', color: 'bg-red-500', team: 'theirs', points: 3 },
-  // Penalties
-  { id: 'pen-for', category: 'penalty_for', label: 'Penal a Favor', type: 'penalty', color: 'bg-blue-600', team: 'ours' },
-  { id: 'pen-against', category: 'penalty_against', label: 'Penal en Contra', type: 'penalty', color: 'bg-orange-600', team: 'theirs' },
-  // Set pieces
-  { id: 'scrum', category: 'scrum', label: 'Scrum', type: 'set_piece', color: 'bg-purple-600' },
-  { id: 'lineout', category: 'lineout', label: 'Line', type: 'set_piece', color: 'bg-purple-500' },
-  { id: 'ruck', category: 'ruck', label: 'Ruck', type: 'set_piece', color: 'bg-purple-400' },
-  { id: 'maul', category: 'maul', label: 'Maul', type: 'set_piece', color: 'bg-purple-400' },
-  // Observations
-  { id: 'obs-attack', category: 'obs_attack', label: 'Obs. Ataque', type: 'observation', color: 'bg-yellow-600' },
-  { id: 'obs-defense', category: 'obs_defense', label: 'Obs. Defensa', type: 'observation', color: 'bg-yellow-600' },
-  { id: 'obs-catch', category: 'obs_skills_catch_pass', label: 'Atrapar/Pasar', type: 'observation', color: 'bg-yellow-500' },
-  { id: 'obs-duel', category: 'obs_skills_duel', label: 'Duelo', type: 'observation', color: 'bg-yellow-500' },
-  { id: 'obs-tackle', category: 'obs_skills_tackle', label: 'Tackle', type: 'observation', color: 'bg-yellow-500' },
-  { id: 'obs-ruck', category: 'obs_skills_ruck', label: 'Ruck (Dest.)', type: 'observation', color: 'bg-yellow-500' },
-  { id: 'obs-general', category: 'obs_general', label: 'Obs. General', type: 'observation', color: 'bg-gray-500' },
-  { id: 'obs-player', category: 'obs_player', label: 'Obs. Jugador', type: 'observation', color: 'bg-gray-500' },
+  // Scoring — single buttons, team selected via popup
+  { id: 'try', category: 'try', label: 'Try', type: 'scoring', color: 'default', points: 5 },
+  { id: 'conversion', category: 'conversion', label: 'Conversión', type: 'scoring', color: 'default', points: 2 },
+  { id: 'penalty-kick', category: 'penalty_kick', label: 'Penal (gol)', type: 'scoring', color: 'default', points: 3 },
+  { id: 'drop-goal', category: 'drop_goal', label: 'Drop', type: 'scoring', color: 'default', points: 3 },
+  // Penalties (infractions, no points)
+  { id: 'pen-for', category: 'penalty_for', label: 'Penal a Favor', type: 'penalty', color: 'default', team: 'ours' },
+  { id: 'pen-against', category: 'penalty_against', label: 'Penal en Contra', type: 'penalty', color: 'default', team: 'theirs' },
+  // Set pieces — team+outcome selected via dialog
+  { id: 'scrum', category: 'scrum', label: 'Scrum', type: 'set_piece', color: 'default' },
+  { id: 'lineout', category: 'lineout', label: 'Line', type: 'set_piece', color: 'default' },
+  { id: 'ruck', category: 'ruck', label: 'Ruck', type: 'set_piece', color: 'default' },
+  { id: 'maul', category: 'maul', label: 'Maul', type: 'set_piece', color: 'default' },
+  // Observations — kept minimal
+  { id: 'obs-general', category: 'obs_general', label: 'Obs. General', type: 'observation', color: 'default' },
+  { id: 'obs-player', category: 'obs_player', label: 'Obs. Jugador', type: 'observation', color: 'default' },
 ]
