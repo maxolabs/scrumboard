@@ -1,0 +1,267 @@
+import { create } from 'zustand'
+import { supabase } from '@/lib/supabase'
+import type { Match, MatchEvent, MatchHalf, MatchStatus, EventCategory, EventTeam, EventOutcome } from '@/lib/types'
+import { POINTS_MAP } from '@/lib/constants'
+import { formatMatchMinute } from '@/lib/utils'
+
+interface MatchState {
+  match: Match | null
+  events: MatchEvent[]
+  elapsedSeconds: number
+  timerRunning: boolean
+  intervalId: ReturnType<typeof setInterval> | null
+  lastPersist: number
+
+  loadMatch: (id: string) => Promise<void>
+  startTimer: () => void
+  pauseTimer: () => void
+  switchHalf: () => Promise<void>
+  finishMatch: () => Promise<void>
+  addEvent: (params: {
+    category: EventCategory
+    team?: EventTeam | null
+    outcome?: EventOutcome | null
+    points?: number
+    playerNumber?: number | null
+    notes?: string
+  }) => Promise<void>
+  deleteEvent: (eventId: string) => Promise<void>
+  updateNotes: (notes: string) => Promise<void>
+  persistTimer: () => Promise<void>
+  cleanup: () => void
+}
+
+export const useMatchStore = create<MatchState>((set, get) => ({
+  match: null,
+  events: [],
+  elapsedSeconds: 0,
+  timerRunning: false,
+  intervalId: null,
+  lastPersist: 0,
+
+  loadMatch: async (id) => {
+    const { data: match } = await supabase
+      .from('matches')
+      .select('*, team:teams(*)')
+      .eq('id', id)
+      .single()
+    if (!match) return
+
+    const { data: events } = await supabase
+      .from('match_events')
+      .select('*')
+      .eq('match_id', id)
+      .order('created_at', { ascending: true })
+
+    const elapsed = match.current_half === 'first'
+      ? match.first_half_seconds
+      : match.second_half_seconds
+
+    set({
+      match: match as Match,
+      events: (events ?? []) as MatchEvent[],
+      elapsedSeconds: elapsed,
+      timerRunning: false,
+    })
+  },
+
+  startTimer: () => {
+    const state = get()
+    if (state.timerRunning || !state.match) return
+
+    // Auto-advance status if pending
+    const { match } = state
+    if (match.status === 'pending' || match.status === 'half_time') {
+      const newStatus: MatchStatus = match.current_half === 'first' ? 'first_half' : 'second_half'
+      supabase
+        .from('matches')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', match.id)
+        .then(() => {
+          set(s => ({ match: s.match ? { ...s.match, status: newStatus } : null }))
+        })
+    }
+
+    const intervalId = setInterval(() => {
+      const s = get()
+      const newElapsed = s.elapsedSeconds + 1
+      set({ elapsedSeconds: newElapsed })
+
+      // Persist every 30 seconds
+      if (newElapsed - s.lastPersist >= 30) {
+        get().persistTimer()
+      }
+    }, 1000)
+
+    set({ timerRunning: true, intervalId })
+  },
+
+  pauseTimer: () => {
+    const { intervalId } = get()
+    if (intervalId) clearInterval(intervalId)
+    set({ timerRunning: false, intervalId: null })
+    get().persistTimer()
+  },
+
+  persistTimer: async () => {
+    const { match, elapsedSeconds } = get()
+    if (!match) return
+
+    const field = match.current_half === 'first' ? 'first_half_seconds' : 'second_half_seconds'
+    await supabase
+      .from('matches')
+      .update({ [field]: elapsedSeconds, updated_at: new Date().toISOString() })
+      .eq('id', match.id)
+
+    set({ lastPersist: elapsedSeconds })
+  },
+
+  switchHalf: async () => {
+    const state = get()
+    if (!state.match) return
+
+    // Pause first
+    if (state.timerRunning) {
+      const { intervalId } = state
+      if (intervalId) clearInterval(intervalId)
+    }
+
+    // Persist current half time
+    await get().persistTimer()
+
+    const newHalf: MatchHalf = 'second'
+    const newStatus: MatchStatus = 'half_time'
+
+    await supabase
+      .from('matches')
+      .update({
+        current_half: newHalf,
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', state.match.id)
+
+    set(s => ({
+      match: s.match ? { ...s.match, current_half: newHalf, status: newStatus } : null,
+      elapsedSeconds: s.match?.second_half_seconds ?? 0,
+      timerRunning: false,
+      intervalId: null,
+    }))
+  },
+
+  finishMatch: async () => {
+    const state = get()
+    if (!state.match) return
+
+    if (state.timerRunning) {
+      const { intervalId } = state
+      if (intervalId) clearInterval(intervalId)
+    }
+    await get().persistTimer()
+
+    await supabase
+      .from('matches')
+      .update({ status: 'finished' as MatchStatus, updated_at: new Date().toISOString() })
+      .eq('id', state.match.id)
+
+    set(s => ({
+      match: s.match ? { ...s.match, status: 'finished' } : null,
+      timerRunning: false,
+      intervalId: null,
+    }))
+  },
+
+  addEvent: async ({ category, team, outcome, points, playerNumber, notes }) => {
+    const { match, elapsedSeconds } = get()
+    if (!match) return
+
+    const eventPoints = points ?? POINTS_MAP[category] ?? 0
+
+    const newEvent: Partial<MatchEvent> = {
+      match_id: match.id,
+      category,
+      team: team ?? null,
+      outcome: outcome ?? null,
+      half: match.current_half,
+      match_minute: formatMatchMinute(elapsedSeconds),
+      points: eventPoints,
+      player_number: playerNumber ?? null,
+      notes: notes ?? '',
+    }
+
+    const { data, error } = await supabase
+      .from('match_events')
+      .insert(newEvent)
+      .select()
+      .single()
+
+    if (error || !data) return
+
+    // Optimistic score update
+    set(s => {
+      const events = [...s.events, data as MatchEvent]
+      let homeScore = s.match?.home_score ?? 0
+      let awayScore = s.match?.away_score ?? 0
+
+      if (eventPoints > 0 && team) {
+        const isOursHome = match.is_home
+        if (team === 'ours') {
+          if (isOursHome) homeScore += eventPoints
+          else awayScore += eventPoints
+        } else {
+          if (isOursHome) awayScore += eventPoints
+          else homeScore += eventPoints
+        }
+      }
+
+      return {
+        events,
+        match: s.match ? { ...s.match, home_score: homeScore, away_score: awayScore } : null,
+      }
+    })
+  },
+
+  deleteEvent: async (eventId) => {
+    const { match } = get()
+    if (!match) return
+
+    await supabase.from('match_events').delete().eq('id', eventId)
+
+    // Reload scores from server after delete
+    const { data: refreshed } = await supabase
+      .from('matches')
+      .select('home_score, away_score')
+      .eq('id', match.id)
+      .single()
+
+    set(s => ({
+      events: s.events.filter(e => e.id !== eventId),
+      match: s.match && refreshed
+        ? { ...s.match, home_score: refreshed.home_score, away_score: refreshed.away_score }
+        : s.match,
+    }))
+  },
+
+  updateNotes: async (notes) => {
+    const { match } = get()
+    if (!match) return
+    await supabase
+      .from('matches')
+      .update({ notes, updated_at: new Date().toISOString() })
+      .eq('id', match.id)
+    set(s => ({ match: s.match ? { ...s.match, notes } : null }))
+  },
+
+  cleanup: () => {
+    const { intervalId } = get()
+    if (intervalId) clearInterval(intervalId)
+    set({
+      match: null,
+      events: [],
+      elapsedSeconds: 0,
+      timerRunning: false,
+      intervalId: null,
+      lastPersist: 0,
+    })
+  },
+}))
