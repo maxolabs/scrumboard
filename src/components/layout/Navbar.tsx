@@ -1,12 +1,13 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
-import { LayoutDashboard, Users, UserCircle, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, UserCircle, SlidersHorizontal, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AppLogo } from './AppLogo'
 
 const navItems = [
   { to: '/', label: 'Partidos', icon: LayoutDashboard },
   { to: '/equipos', label: 'Equipos', icon: Users },
+  { to: '/botones', label: 'Botones', icon: SlidersHorizontal },
   { to: '/perfil', label: 'Perfil', icon: UserCircle },
 ]
 
