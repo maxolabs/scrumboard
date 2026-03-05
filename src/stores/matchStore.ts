@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { supabase } from '@/lib/supabase'
+import { safeInsert, safeUpdate, deleteFromQueue } from '@/lib/offlineQueue'
 import type { Match, MatchEvent, MatchHalf, MatchStatus, EventCategory, EventTeam, EventOutcome } from '@/lib/types'
 import { POINTS_MAP } from '@/lib/constants'
 import { formatMatchMinute } from '@/lib/utils'
@@ -73,10 +74,7 @@ export const useMatchStore = create<MatchState>((set, get) => ({
     const { match } = state
     if (match.status === 'pending' || match.status === 'half_time') {
       const newStatus: MatchStatus = match.current_half === 'first' ? 'first_half' : 'second_half'
-      supabase
-        .from('matches')
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
-        .eq('id', match.id)
+      safeUpdate('matches', { status: newStatus, updated_at: new Date().toISOString() }, { id: match.id })
         .then(() => {
           set(s => ({ match: s.match ? { ...s.match, status: newStatus } : null }))
         })
@@ -108,10 +106,7 @@ export const useMatchStore = create<MatchState>((set, get) => ({
     if (!match) return
 
     const field = match.current_half === 'first' ? 'first_half_seconds' : 'second_half_seconds'
-    await supabase
-      .from('matches')
-      .update({ [field]: elapsedSeconds, updated_at: new Date().toISOString() })
-      .eq('id', match.id)
+    await safeUpdate('matches', { [field]: elapsedSeconds, updated_at: new Date().toISOString() }, { id: match.id })
 
     set({ lastPersist: elapsedSeconds })
   },
@@ -132,14 +127,11 @@ export const useMatchStore = create<MatchState>((set, get) => ({
     const newHalf: MatchHalf = 'second'
     const newStatus: MatchStatus = 'half_time'
 
-    await supabase
-      .from('matches')
-      .update({
-        current_half: newHalf,
-        status: newStatus,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', state.match.id)
+    await safeUpdate('matches', {
+      current_half: newHalf,
+      status: newStatus,
+      updated_at: new Date().toISOString(),
+    }, { id: state.match.id })
 
     set(s => ({
       match: s.match ? { ...s.match, current_half: newHalf, status: newStatus } : null,
@@ -159,10 +151,7 @@ export const useMatchStore = create<MatchState>((set, get) => ({
     }
     await get().persistTimer()
 
-    await supabase
-      .from('matches')
-      .update({ status: 'finished' as MatchStatus, updated_at: new Date().toISOString() })
-      .eq('id', state.match.id)
+    await safeUpdate('matches', { status: 'finished' as MatchStatus, updated_at: new Date().toISOString() }, { id: state.match.id })
 
     set(s => ({
       match: s.match ? { ...s.match, status: 'finished' } : null,
@@ -189,13 +178,7 @@ export const useMatchStore = create<MatchState>((set, get) => ({
       notes: notes ?? '',
     }
 
-    const { data, error } = await supabase
-      .from('match_events')
-      .insert(newEvent)
-      .select()
-      .single()
-
-    if (error || !data) return
+    const { data } = await safeInsert('match_events', newEvent)
 
     // Optimistic score update
     set(s => {
@@ -225,6 +208,31 @@ export const useMatchStore = create<MatchState>((set, get) => ({
     const { match } = get()
     if (!match) return
 
+    // Local-only event: remove from queue and local state
+    if (eventId.startsWith('local-')) {
+      await deleteFromQueue(eventId)
+      const deleted = get().events.find(e => e.id === eventId)
+      set(s => {
+        let homeScore = s.match?.home_score ?? 0
+        let awayScore = s.match?.away_score ?? 0
+        if (deleted && deleted.points > 0 && deleted.team) {
+          const isOursHome = match.is_home
+          if (deleted.team === 'ours') {
+            if (isOursHome) homeScore -= deleted.points
+            else awayScore -= deleted.points
+          } else {
+            if (isOursHome) awayScore -= deleted.points
+            else homeScore -= deleted.points
+          }
+        }
+        return {
+          events: s.events.filter(e => e.id !== eventId),
+          match: s.match ? { ...s.match, home_score: homeScore, away_score: awayScore } : null,
+        }
+      })
+      return
+    }
+
     await supabase.from('match_events').delete().eq('id', eventId)
 
     // Reload scores from server after delete
@@ -245,10 +253,7 @@ export const useMatchStore = create<MatchState>((set, get) => ({
   updateNotes: async (notes) => {
     const { match } = get()
     if (!match) return
-    await supabase
-      .from('matches')
-      .update({ notes, updated_at: new Date().toISOString() })
-      .eq('id', match.id)
+    await safeUpdate('matches', { notes, updated_at: new Date().toISOString() }, { id: match.id })
     set(s => ({ match: s.match ? { ...s.match, notes } : null }))
   },
 

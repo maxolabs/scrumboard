@@ -1,9 +1,11 @@
 import { useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useMatchStore } from '@/stores/matchStore'
+import { useOfflineSync } from '@/hooks/useOfflineSync'
 import { ScoreCard } from './ScoreCard'
 import { ButtonPanel } from './ButtonPanel'
 import { EventFeed } from './EventFeed'
+import { OfflineBanner } from '@/components/offline/OfflineBanner'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, FileText } from 'lucide-react'
 
@@ -11,6 +13,7 @@ export function LiveMatchView() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { match, loadMatch, cleanup } = useMatchStore()
+  useOfflineSync()
 
   useEffect(() => {
     if (id) loadMatch(id)
@@ -50,6 +53,8 @@ export function LiveMatchView() {
         </Button>
         <span className="text-sm font-medium text-muted-foreground">Partido en vivo</span>
       </div>
+
+      <OfflineBanner />
 
       {/* Score + Timer (merged) */}
       <ScoreCard />
