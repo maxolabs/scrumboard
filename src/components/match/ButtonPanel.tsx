@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useMatchStore } from '@/stores/matchStore'
 import { useButtonLayoutStore } from '@/stores/buttonLayoutStore'
 import type { ButtonConfig, EventTeam } from '@/lib/types'
-import { CATEGORY_LABELS, HALF_LABELS, TEAM_LABELS } from '@/lib/constants'
+import { HALF_LABELS, TEAM_LABELS } from '@/lib/constants'
 import { EventDialog } from './EventDialog'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -22,14 +22,14 @@ export function ButtonPanel() {
   const handleTap = (btn: ButtonConfig) => {
     if (!isMatchActive) return
 
-    // Set piece or observation → open full dialog
-    if (btn.type === 'set_piece' || btn.type === 'observation') {
+    // Set piece, observation, or custom with notes → open full dialog
+    if (btn.type === 'set_piece' || btn.type === 'observation' || btn.type === 'custom_note') {
       setDialogButton(btn)
       return
     }
 
-    // Scoring → open team selection popup
-    if (btn.type === 'scoring') {
+    // Scoring or custom with team pick → open team selection popup
+    if (btn.type === 'scoring' || btn.type === 'custom_team') {
       setTeamPickButton(btn)
       return
     }
@@ -51,7 +51,7 @@ export function ButtonPanel() {
       points: btn.points,
     })
 
-    const label = CATEGORY_LABELS[btn.category]
+    const label = btn.label
     const teamLabel = team ? ` ${TEAM_LABELS[team]}` : ''
     const minute = Math.floor(elapsedSeconds / 60)
     const halfLabel = match ? HALF_LABELS[match.current_half] : ''
@@ -85,7 +85,7 @@ export function ButtonPanel() {
         <DialogContent className="max-w-xs">
           <DialogHeader>
             <DialogTitle className="text-center">
-              {teamPickButton ? CATEGORY_LABELS[teamPickButton.category] : ''}
+              {teamPickButton ? teamPickButton.label : ''}
             </DialogTitle>
           </DialogHeader>
           <div className="flex gap-3">

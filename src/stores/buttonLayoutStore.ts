@@ -12,6 +12,8 @@ interface ButtonLayoutState {
   moveButton: (fromIndex: number, toIndex: number) => void
   toggleButton: (id: string) => void
   resetToDefaults: () => void
+  addCustomButton: (label: string, type: 'custom_note' | 'custom_team') => void
+  removeButton: (id: string) => void
 }
 
 export const useButtonLayoutStore = create<ButtonLayoutState>((set, get) => ({
@@ -87,6 +89,18 @@ export const useButtonLayoutStore = create<ButtonLayoutState>((set, get) => ({
 
   resetToDefaults: () => {
     set({ buttons: DEFAULT_BUTTONS.map(btn => ({ ...btn })) })
+    get().save()
+  },
+
+  addCustomButton: (label, type) => {
+    const id = crypto.randomUUID()
+    const newBtn: ButtonConfig = { id, category: id, label, type, color: 'default', visible: true }
+    set({ buttons: [...get().buttons, newBtn] })
+    get().save()
+  },
+
+  removeButton: (id) => {
+    set({ buttons: get().buttons.filter(btn => btn.id !== id) })
     get().save()
   },
 }))

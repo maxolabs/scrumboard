@@ -51,7 +51,7 @@ export interface Match {
 export interface MatchEvent {
   id: string
   match_id: string
-  category: EventCategory
+  category: string
   team: EventTeam | null
   outcome: EventOutcome | null
   half: MatchHalf
@@ -62,11 +62,11 @@ export interface MatchEvent {
   created_at: string
 }
 
-export type ButtonType = 'scoring' | 'penalty' | 'set_piece' | 'observation'
+export type ButtonType = 'scoring' | 'penalty' | 'set_piece' | 'observation' | 'custom_note' | 'custom_team'
 
 export interface ButtonConfig {
   id: string
-  category: EventCategory
+  category: string
   label: string
   type: ButtonType
   color: string

@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import type { MatchEvent, EventCategory, EventTeam } from './types'
+import type { MatchEvent, EventTeam } from './types'
 import { CATEGORY_LABELS } from './constants'
 
 export function cn(...inputs: ClassValue[]) {
@@ -25,7 +25,7 @@ export function eventLabel(event: MatchEvent): string {
 
 export function countEvents(
   events: MatchEvent[],
-  category: EventCategory,
+  category: string,
   team?: EventTeam,
   outcome?: string,
 ): number {
@@ -39,14 +39,14 @@ export function countEvents(
 
 export function getObservationNotes(
   events: MatchEvent[],
-  category: EventCategory,
+  category: string,
 ): string[] {
   return events
     .filter(e => e.category === category && e.notes)
     .map(e => e.notes)
 }
 
-export function getSetPieceStats(events: MatchEvent[], category: EventCategory) {
+export function getSetPieceStats(events: MatchEvent[], category: string) {
   const ours = events.filter(e => e.category === category && e.team === 'ours')
   const theirs = events.filter(e => e.category === category && e.team === 'theirs')
   return {

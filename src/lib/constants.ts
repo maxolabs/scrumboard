@@ -1,13 +1,13 @@
-import type { ButtonConfig, EventCategory } from './types'
+import type { ButtonConfig } from './types'
 
-export const POINTS_MAP: Partial<Record<EventCategory, number>> = {
+export const POINTS_MAP: Record<string, number> = {
   try: 5,
   conversion: 2,
   penalty_kick: 3,
   drop_goal: 3,
 }
 
-export const CATEGORY_LABELS: Record<EventCategory, string> = {
+export const CATEGORY_LABELS: Record<string, string> = {
   try: 'Try',
   conversion: 'Conversión',
   penalty_kick: 'Penal',

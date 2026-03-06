@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { ButtonConfig, EventTeam, EventOutcome } from '@/lib/types'
 import { useMatchStore } from '@/stores/matchStore'
-import { TEAM_LABELS, OUTCOME_LABELS, CATEGORY_LABELS, HALF_LABELS } from '@/lib/constants'
+import { TEAM_LABELS, OUTCOME_LABELS, HALF_LABELS } from '@/lib/constants'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,6 +26,7 @@ export function EventDialog({ button, open, onClose }: Props) {
 
   const isSetPiece = button.type === 'set_piece'
   const isObservation = button.type === 'observation'
+  const isCustomNote = button.type === 'custom_note'
   const isPlayerObs = button.category === 'obs_player'
   const minute = Math.floor(elapsedSeconds / 60)
 
@@ -38,7 +39,7 @@ export function EventDialog({ button, open, onClose }: Props) {
       playerNumber: isPlayerObs && playerNumber ? parseInt(playerNumber, 10) : null,
     })
 
-    const label = CATEGORY_LABELS[button.category]
+    const label = button.label
     const halfLabel = match ? HALF_LABELS[match.current_half] : ''
     toast.success(`${label} — Min ${minute}' ${halfLabel}`)
 
@@ -53,7 +54,7 @@ export function EventDialog({ button, open, onClose }: Props) {
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>{CATEGORY_LABELS[button.category]}</DialogTitle>
+          <DialogTitle>{button.label}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           {isSetPiece && (
@@ -104,7 +105,7 @@ export function EventDialog({ button, open, onClose }: Props) {
             </div>
           )}
 
-          {(isObservation || isSetPiece) && (
+          {(isObservation || isSetPiece || isCustomNote) && (
             <div className="space-y-2">
               <Label>Notas</Label>
               <Textarea
