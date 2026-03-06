@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { supabase } from '@/lib/supabase'
 import { safeInsert, safeUpdate, deleteFromQueue } from '@/lib/offlineQueue'
-import type { Match, MatchEvent, MatchHalf, MatchStatus, EventCategory, EventTeam, EventOutcome } from '@/lib/types'
+import type { Match, MatchEvent, MatchHalf, MatchStatus, EventTeam, EventOutcome } from '@/lib/types'
 import { POINTS_MAP } from '@/lib/constants'
 import { formatMatchMinute } from '@/lib/utils'
 
@@ -19,7 +19,7 @@ interface MatchState {
   switchHalf: () => Promise<void>
   finishMatch: () => Promise<void>
   addEvent: (params: {
-    category: EventCategory
+    category: string
     team?: EventTeam | null
     outcome?: EventOutcome | null
     points?: number
