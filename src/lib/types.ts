@@ -63,13 +63,14 @@ export interface MatchEvent {
 }
 
 export type ButtonType = 'scoring' | 'penalty' | 'set_piece' | 'observation' | 'custom_note' | 'custom_team'
+export type ButtonColor = 'default' | 'score' | 'penalty_for' | 'penalty_against' | 'blue' | 'amber' | 'violet' | 'teal'
 
 export interface ButtonConfig {
   id: string
   category: string
   label: string
   type: ButtonType
-  color: string
+  color: ButtonColor | string
   visible?: boolean
   team?: EventTeam
   points?: number

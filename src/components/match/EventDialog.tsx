@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { ButtonConfig, EventTeam, EventOutcome } from '@/lib/types'
 import { useMatchStore } from '@/stores/matchStore'
 import { TEAM_LABELS, OUTCOME_LABELS, HALF_LABELS } from '@/lib/constants'
@@ -15,43 +15,68 @@ interface Props {
   onClose: () => void
 }
 
+const SKILL_OPTIONS = [
+  { value: 'obs_skills_catch_pass', label: 'Atrapar y pasar' },
+  { value: 'obs_skills_duel', label: 'Duelo' },
+  { value: 'obs_skills_ruck', label: 'Ruck' },
+  { value: 'obs_skills_tackle', label: 'Tackle' },
+] as const
+
 export function EventDialog({ button, open, onClose }: Props) {
   const { addEvent, match, elapsedSeconds } = useMatchStore()
   const [team, setTeam] = useState<EventTeam>('ours')
   const [outcome, setOutcome] = useState<EventOutcome>('won')
   const [notes, setNotes] = useState('')
   const [playerNumber, setPlayerNumber] = useState('')
+  const [skillCategory, setSkillCategory] = useState<string>(SKILL_OPTIONS[0].value)
+
+  const isSetPiece = button?.type === 'set_piece'
+  const isObservation = button?.type === 'observation'
+  const isCustomNote = button?.type === 'custom_note'
+  const isPlayerObs = button?.category === 'obs_player'
+  const isSkillsFlow = button?.category === 'obs_skills'
+  const minute = Math.floor(elapsedSeconds / 60)
+
+  const resolvedCategory = useMemo(() => {
+    if (!button) return ''
+    return isSkillsFlow ? skillCategory : button.category
+  }, [button, isSkillsFlow, skillCategory])
 
   if (!button) return null
 
-  const isSetPiece = button.type === 'set_piece'
-  const isObservation = button.type === 'observation'
-  const isCustomNote = button.type === 'custom_note'
-  const isPlayerObs = button.category === 'obs_player'
-  const minute = Math.floor(elapsedSeconds / 60)
+  const resetForm = () => {
+    setNotes('')
+    setPlayerNumber('')
+    setTeam('ours')
+    setOutcome('won')
+    setSkillCategory(SKILL_OPTIONS[0].value)
+  }
+
+  const handleClose = () => {
+    resetForm()
+    onClose()
+  }
 
   const handleSubmit = async () => {
     await addEvent({
-      category: button.category,
+      category: resolvedCategory,
       team: isSetPiece ? team : (button.team ?? null),
       outcome: isSetPiece ? outcome : null,
       notes: notes.trim(),
       playerNumber: isPlayerObs && playerNumber ? parseInt(playerNumber, 10) : null,
     })
 
-    const label = button.label
+    const label = isSkillsFlow
+      ? SKILL_OPTIONS.find(option => option.value === skillCategory)?.label ?? button.label
+      : button.label
     const halfLabel = match ? HALF_LABELS[match.current_half] : ''
     toast.success(`${label} — Min ${minute}' ${halfLabel}`)
 
-    setNotes('')
-    setPlayerNumber('')
-    setTeam('ours')
-    setOutcome('won')
-    onClose()
+    handleClose()
   }
 
   return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+    <Dialog open={open} onOpenChange={v => !v && handleClose()}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>{button.label}</DialogTitle>
@@ -93,6 +118,25 @@ export function EventDialog({ button, open, onClose }: Props) {
             </>
           )}
 
+          {isSkillsFlow && (
+            <div className="space-y-2">
+              <Label>Tipo de destreza</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {SKILL_OPTIONS.map(option => (
+                  <Button
+                    key={option.value}
+                    variant={skillCategory === option.value ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSkillCategory(option.value)}
+                    className="h-auto min-h-10 whitespace-normal"
+                  >
+                    {option.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {isPlayerObs && (
             <div className="space-y-2">
               <Label>N° de camiseta</Label>
@@ -107,11 +151,11 @@ export function EventDialog({ button, open, onClose }: Props) {
 
           {(isObservation || isSetPiece || isCustomNote) && (
             <div className="space-y-2">
-              <Label>Notas</Label>
+              <Label>{isSkillsFlow ? 'Comentario' : 'Notas'}</Label>
               <Textarea
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
-                placeholder="Observación..."
+                placeholder={isSkillsFlow ? 'Comentario opcional…' : 'Observación...'}
                 rows={3}
               />
             </div>

@@ -20,8 +20,9 @@ export const CATEGORY_LABELS: Record<string, string> = {
   maul: 'Maul',
   kickoff: 'Salida',
   kick: 'Kick',
-  obs_attack: 'Obs. Ataque',
-  obs_defense: 'Obs. Defensa',
+  obs_attack: 'Ataque',
+  obs_defense: 'Defensa',
+  obs_skills: 'Destrezas',
   obs_skills_catch_pass: 'Atrapar y Pasar',
   obs_skills_duel: 'Duelo',
   obs_skills_tackle: 'Tackle',
@@ -53,21 +54,32 @@ export const TEAM_CATEGORIES = [
   'Intermedia', 'Primera', 'Femenino', 'Otro',
 ]
 
+export const CUSTOM_BUTTON_COLOR_OPTIONS = [
+  { value: 'default', label: 'Neutral' },
+  { value: 'blue', label: 'Azul suave' },
+  { value: 'amber', label: 'Ámbar suave' },
+  { value: 'violet', label: 'Violeta suave' },
+  { value: 'teal', label: 'Verde azulado' },
+] as const
+
 export const DEFAULT_BUTTONS: ButtonConfig[] = [
   // Scoring — single buttons, team selected via popup
-  { id: 'try', category: 'try', label: 'Try', type: 'scoring', color: 'default', visible: true, points: 5 },
-  { id: 'conversion', category: 'conversion', label: 'Conversión', type: 'scoring', color: 'default', visible: true, points: 2 },
-  { id: 'penalty-kick', category: 'penalty_kick', label: 'Penal (gol)', type: 'scoring', color: 'default', visible: true, points: 3 },
-  { id: 'drop-goal', category: 'drop_goal', label: 'Drop', type: 'scoring', color: 'default', visible: true, points: 3 },
+  { id: 'try', category: 'try', label: 'Try', type: 'scoring', color: 'score', visible: true, points: 5 },
+  { id: 'conversion', category: 'conversion', label: 'Conversión', type: 'scoring', color: 'score', visible: true, points: 2 },
+  { id: 'penalty-kick', category: 'penalty_kick', label: 'Penal (gol)', type: 'scoring', color: 'score', visible: true, points: 3 },
+  { id: 'drop-goal', category: 'drop_goal', label: 'Drop', type: 'scoring', color: 'score', visible: true, points: 3 },
   // Penalties (infractions, no points)
-  { id: 'pen-for', category: 'penalty_for', label: 'Penal a Favor', type: 'penalty', color: 'default', visible: true, team: 'ours' },
-  { id: 'pen-against', category: 'penalty_against', label: 'Penal en Contra', type: 'penalty', color: 'default', visible: true, team: 'theirs' },
+  { id: 'pen-for', category: 'penalty_for', label: 'Penal a Favor', type: 'penalty', color: 'penalty_for', visible: true, team: 'ours' },
+  { id: 'pen-against', category: 'penalty_against', label: 'Penal en Contra', type: 'penalty', color: 'penalty_against', visible: true, team: 'theirs' },
   // Set pieces — team+outcome selected via dialog
   { id: 'scrum', category: 'scrum', label: 'Scrum', type: 'set_piece', color: 'default', visible: true },
   { id: 'lineout', category: 'lineout', label: 'Line', type: 'set_piece', color: 'default', visible: true },
   { id: 'ruck', category: 'ruck', label: 'Ruck', type: 'set_piece', color: 'default', visible: true },
   { id: 'maul', category: 'maul', label: 'Maul', type: 'set_piece', color: 'default', visible: true },
-  // Observations — kept minimal
+  // Observations — restrained by default
+  { id: 'obs-attack', category: 'obs_attack', label: 'Ataque', type: 'observation', color: 'default', visible: true },
+  { id: 'obs-defense', category: 'obs_defense', label: 'Defensa', type: 'observation', color: 'default', visible: true },
+  { id: 'obs-skills', category: 'obs_skills', label: 'Destrezas', type: 'observation', color: 'default', visible: true },
   { id: 'obs-general', category: 'obs_general', label: 'Obs. General', type: 'observation', color: 'default', visible: true },
   { id: 'obs-player', category: 'obs_player', label: 'Obs. Jugador', type: 'observation', color: 'default', visible: true },
 ]

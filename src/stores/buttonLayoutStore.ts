@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { supabase } from '@/lib/supabase'
 import { DEFAULT_BUTTONS } from '@/lib/constants'
-import type { ButtonConfig } from '@/lib/types'
+import type { ButtonConfig, ButtonColor } from '@/lib/types'
 
 interface ButtonLayoutState {
   buttons: ButtonConfig[]
@@ -12,8 +12,25 @@ interface ButtonLayoutState {
   moveButton: (fromIndex: number, toIndex: number) => void
   toggleButton: (id: string) => void
   resetToDefaults: () => void
-  addCustomButton: (label: string, type: 'custom_note' | 'custom_team') => void
+  addCustomButton: (label: string, type: 'custom_note' | 'custom_team', color?: ButtonColor) => void
+  updateCustomButtonColor: (id: string, color: ButtonColor) => void
   removeButton: (id: string) => void
+}
+
+function normalizeButtons(layout?: ButtonConfig[]) {
+  const source = layout?.length ? layout : DEFAULT_BUTTONS
+  const merged = source.map(btn => {
+    const defaultBtn = DEFAULT_BUTTONS.find(def => def.id === btn.id)
+    return {
+      ...defaultBtn,
+      ...btn,
+      color: btn.color ?? defaultBtn?.color ?? 'default',
+      visible: btn.visible ?? true,
+    }
+  })
+
+  const missingDefaults = DEFAULT_BUTTONS.filter(def => !merged.some(btn => btn.id === def.id))
+  return [...merged, ...missingDefaults.map(btn => ({ ...btn }))]
 }
 
 export const useButtonLayoutStore = create<ButtonLayoutState>((set, get) => ({
@@ -39,16 +56,17 @@ export const useButtonLayoutStore = create<ButtonLayoutState>((set, get) => ({
       .single()
 
     if (data?.layout) {
-      set({ buttons: data.layout as ButtonConfig[], loading: false, loaded: true })
+      const buttons = normalizeButtons(data.layout as ButtonConfig[])
+      set({ buttons, loading: false, loaded: true })
     } else {
-      // Seed default layout for this user
+      const buttons = DEFAULT_BUTTONS.map(btn => ({ ...btn }))
       await supabase.from('button_layouts').insert({
         user_id: user.id,
         name: 'Default',
-        layout: DEFAULT_BUTTONS,
+        layout: buttons,
         is_default: true,
       })
-      set({ buttons: [...DEFAULT_BUTTONS], loading: false, loaded: true })
+      set({ buttons, loading: false, loaded: true })
     }
   },
 
@@ -92,10 +110,20 @@ export const useButtonLayoutStore = create<ButtonLayoutState>((set, get) => ({
     get().save()
   },
 
-  addCustomButton: (label, type) => {
+  addCustomButton: (label, type, color = 'default') => {
     const id = crypto.randomUUID()
-    const newBtn: ButtonConfig = { id, category: id, label, type, color: 'default', visible: true }
+    const newBtn: ButtonConfig = { id, category: id, label, type, color, visible: true }
     set({ buttons: [...get().buttons, newBtn] })
+    get().save()
+  },
+
+  updateCustomButtonColor: (id, color) => {
+    const buttons = get().buttons.map(btn =>
+      btn.id === id && (btn.type === 'custom_note' || btn.type === 'custom_team')
+        ? { ...btn, color }
+        : btn,
+    )
+    set({ buttons })
     get().save()
   },
 
