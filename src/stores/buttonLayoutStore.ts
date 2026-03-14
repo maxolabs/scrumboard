@@ -21,10 +21,15 @@ function normalizeButtons(layout?: ButtonConfig[]) {
   const source = layout?.length ? layout : DEFAULT_BUTTONS
   const merged = source.map(btn => {
     const defaultBtn = DEFAULT_BUTTONS.find(def => def.id === btn.id)
+    const isCustom = btn.type === 'custom_note' || btn.type === 'custom_team'
+    const shouldUseDefaultSemanticColor = !isCustom && (!btn.color || btn.color === 'default')
+
     return {
       ...defaultBtn,
       ...btn,
-      color: btn.color ?? defaultBtn?.color ?? 'default',
+      color: shouldUseDefaultSemanticColor
+        ? (defaultBtn?.color ?? 'default')
+        : (btn.color ?? defaultBtn?.color ?? 'default'),
       visible: btn.visible ?? true,
     }
   })
