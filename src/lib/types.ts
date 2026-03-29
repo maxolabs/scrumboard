@@ -41,6 +41,8 @@ export interface Match {
   first_half_seconds: number
   second_half_seconds: number
   current_half: MatchHalf
+  timer_running: boolean
+  timer_started_at: string | null
   notes: string
   created_at: string
   updated_at: string
