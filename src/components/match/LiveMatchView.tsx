@@ -12,13 +12,35 @@ import { ArrowLeft, FileText } from 'lucide-react'
 export function LiveMatchView() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { match, loadMatch, cleanup } = useMatchStore()
+  const { match, timerRunning, loadMatch, cleanup, persistTimer } = useMatchStore()
   useOfflineSync()
 
   useEffect(() => {
     if (id) loadMatch(id)
     return () => cleanup()
   }, [id, loadMatch, cleanup])
+
+  useEffect(() => {
+    if (!match?.id || !timerRunning) return
+
+    const syncTimer = () => {
+      void persistTimer()
+    }
+
+    const handleVisibility = () => {
+      if (document.hidden) syncTimer()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibility)
+    window.addEventListener('pagehide', syncTimer)
+    window.addEventListener('beforeunload', syncTimer)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility)
+      window.removeEventListener('pagehide', syncTimer)
+      window.removeEventListener('beforeunload', syncTimer)
+    }
+  }, [match?.id, timerRunning, persistTimer])
 
   if (!match) {
     return (
