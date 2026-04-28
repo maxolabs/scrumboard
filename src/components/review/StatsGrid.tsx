@@ -1,5 +1,5 @@
 import type { MatchEvent } from '@/lib/types'
-import { getSetPieceStats, getObservationNotes, countEvents } from '@/lib/utils'
+import { getSetPieceStats, getObservationNotes, countEvents, eventLabel } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface Props {
@@ -21,6 +21,11 @@ export function StatsGrid({ events }: Props) {
 
   const penFor = countEvents(events, 'penalty_for')
   const penAgainst = countEvents(events, 'penalty_against')
+  const yellowFor = countEvents(events, 'yellow_card', 'ours')
+  const yellowAgainst = countEvents(events, 'yellow_card', 'theirs')
+  const redFor = countEvents(events, 'red_card', 'ours')
+  const redAgainst = countEvents(events, 'red_card', 'theirs')
+  const cardEvents = events.filter(e => e.category === 'yellow_card' || e.category === 'red_card')
 
   return (
     <div className="space-y-4">
@@ -63,6 +68,26 @@ export function StatsGrid({ events }: Props) {
         <CardContent className="text-sm">
           <p>A favor: {penFor}</p>
           <p>En contra: {penAgainst}</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Tarjetas</CardTitle></CardHeader>
+        <CardContent className="space-y-1 text-sm">
+          <p>Amarillas, nuestro equipo: {yellowFor}</p>
+          <p>Amarillas, rival: {yellowAgainst}</p>
+          <p>Rojas, nuestro equipo: {redFor}</p>
+          <p>Rojas, rival: {redAgainst}</p>
+          {cardEvents.length > 0 && (
+            <div className="space-y-1 pt-2">
+              {cardEvents.map(event => (
+                <p key={event.id}>
+                  - {event.match_minute}' {eventLabel(event)}{event.player_number ? ` #${event.player_number}` : ''}
+                  {event.notes ? `, ${event.notes}` : ''}
+                </p>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

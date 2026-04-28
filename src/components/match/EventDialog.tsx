@@ -22,6 +22,8 @@ const SKILL_OPTIONS = [
   { value: 'obs_skills_tackle', label: 'Tackle' },
 ] as const
 
+const CARD_CATEGORIES = new Set(['yellow_card', 'red_card'])
+
 export function EventDialog({ button, open, onClose }: Props) {
   const { addEvent, match, elapsedSeconds } = useMatchStore()
   const [team, setTeam] = useState<EventTeam>('ours')
@@ -36,6 +38,7 @@ export function EventDialog({ button, open, onClose }: Props) {
   const isCustomNote = button?.type === 'custom_note'
   const isPlayerObs = button?.category === 'obs_player'
   const isSkillsFlow = button?.category === 'obs_skills'
+  const isCardEvent = button ? CARD_CATEGORIES.has(button.category) : false
   const minute = Math.floor(elapsedSeconds / 60)
 
   const resolvedCategory = useMemo(() => {
@@ -65,10 +68,10 @@ export function EventDialog({ button, open, onClose }: Props) {
     try {
       await addEvent({
         category: resolvedCategory,
-        team: isSetPiece ? team : (button.team ?? null),
+        team: isSetPiece || isCardEvent ? team : (button.team ?? null),
         outcome: isSetPiece ? outcome : null,
         notes: notes.trim(),
-        playerNumber: isPlayerObs && playerNumber ? parseInt(playerNumber, 10) : null,
+        playerNumber: (isPlayerObs || isCardEvent) && playerNumber ? parseInt(playerNumber, 10) : null,
       })
 
       const label = isSkillsFlow
@@ -93,7 +96,7 @@ export function EventDialog({ button, open, onClose }: Props) {
           <DialogTitle>{button.label}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          {isSetPiece && (
+          {(isSetPiece || isCardEvent) && (
             <>
               <div className="space-y-2">
                 <Label>Equipo</Label>
@@ -148,7 +151,7 @@ export function EventDialog({ button, open, onClose }: Props) {
             </div>
           )}
 
-          {isPlayerObs && (
+          {(isPlayerObs || isCardEvent) && (
             <div className="space-y-2">
               <Label>N° de camiseta</Label>
               <Input
@@ -162,11 +165,11 @@ export function EventDialog({ button, open, onClose }: Props) {
 
           {(isObservation || isSetPiece || isCustomNote) && (
             <div className="space-y-2">
-              <Label>{isSkillsFlow ? 'Comentario' : 'Notas'}</Label>
+              <Label>{isSkillsFlow ? 'Comentario' : isCardEvent ? 'Detalle' : 'Notas'}</Label>
               <Textarea
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
-                placeholder={isSkillsFlow ? 'Comentario opcional…' : 'Observación...'}
+                placeholder={isSkillsFlow ? 'Comentario opcional…' : isCardEvent ? 'Motivo u observación opcional…' : 'Observación...'}
                 rows={3}
               />
             </div>
