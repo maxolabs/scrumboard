@@ -84,6 +84,8 @@ create table matches (
   first_half_seconds integer not null default 0,
   second_half_seconds integer not null default 0,
   current_half match_half not null default 'first',
+  timer_running boolean not null default false,
+  timer_started_at timestamptz,
   notes text not null default '',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

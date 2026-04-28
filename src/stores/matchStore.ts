@@ -5,50 +5,22 @@ import type { Match, MatchEvent, MatchHalf, MatchStatus, EventTeam, EventOutcome
 import { POINTS_MAP } from '@/lib/constants'
 import { formatMatchMinute } from '@/lib/utils'
 
-const TIMER_STORAGE_PREFIX = 'scrumboard:match-timer'
+function computeElapsed(match: Pick<Match, 'current_half' | 'first_half_seconds' | 'second_half_seconds' | 'timer_running' | 'timer_started_at'>): number {
+  const baseElapsed = match.current_half === 'first'
+    ? match.first_half_seconds
+    : match.second_half_seconds
 
-type TimerSnapshot = {
-  matchId: string
-  half: MatchHalf
-  baseElapsedSeconds: number
-  startedAt: number
-  running: boolean
+  if (!match.timer_running || !match.timer_started_at) return baseElapsed
+
+  const startedAtMs = new Date(match.timer_started_at).getTime()
+  if (Number.isNaN(startedAtMs)) return baseElapsed
+
+  const deltaSeconds = Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000))
+  return baseElapsed + deltaSeconds
 }
 
-function timerStorageKey(matchId: string) {
-  return `${TIMER_STORAGE_PREFIX}:${matchId}`
-}
-
-function readTimerSnapshot(matchId: string): TimerSnapshot | null {
-  try {
-    const raw = localStorage.getItem(timerStorageKey(matchId))
-    if (!raw) return null
-    return JSON.parse(raw) as TimerSnapshot
-  } catch {
-    return null
-  }
-}
-
-function writeTimerSnapshot(snapshot: TimerSnapshot) {
-  try {
-    localStorage.setItem(timerStorageKey(snapshot.matchId), JSON.stringify(snapshot))
-  } catch {
-    // ignore storage failures
-  }
-}
-
-function clearTimerSnapshot(matchId: string) {
-  try {
-    localStorage.removeItem(timerStorageKey(matchId))
-  } catch {
-    // ignore storage failures
-  }
-}
-
-function computeElapsed(baseElapsedSeconds: number, startedAt: number | null) {
-  if (!startedAt) return baseElapsedSeconds
-  const delta = Math.max(0, Math.floor((Date.now() - startedAt) / 1000))
-  return baseElapsedSeconds + delta
+function activeHalfField(half: MatchHalf) {
+  return half === 'first' ? 'first_half_seconds' : 'second_half_seconds'
 }
 
 interface MatchState {
@@ -58,12 +30,10 @@ interface MatchState {
   timerRunning: boolean
   intervalId: ReturnType<typeof setInterval> | null
   lastPersist: number
-  runStartedAt: number | null
-  runBaseElapsedSeconds: number
 
   loadMatch: (id: string) => Promise<void>
   startTimer: () => void
-  pauseTimer: () => void
+  pauseTimer: () => Promise<void>
   switchHalf: () => Promise<void>
   finishMatch: () => Promise<void>
   addEvent: (params: {
@@ -87,8 +57,6 @@ export const useMatchStore = create<MatchState>((set, get) => ({
   timerRunning: false,
   intervalId: null,
   lastPersist: 0,
-  runStartedAt: null,
-  runBaseElapsedSeconds: 0,
 
   loadMatch: async (id) => {
     const { data: match } = await supabase
@@ -104,54 +72,30 @@ export const useMatchStore = create<MatchState>((set, get) => ({
       .eq('match_id', id)
       .order('created_at', { ascending: true })
 
-    const elapsed = match.current_half === 'first'
-      ? match.first_half_seconds
-      : match.second_half_seconds
-
     const typedMatch = match as Match
-    const snapshot = readTimerSnapshot(typedMatch.id)
-    const canResumeFromSnapshot = Boolean(
-      snapshot &&
-      snapshot.running &&
-      snapshot.half === typedMatch.current_half &&
-      (typedMatch.status === 'first_half' || typedMatch.status === 'second_half')
-    )
+    const elapsed = computeElapsed(typedMatch)
 
-    if (canResumeFromSnapshot && snapshot) {
-      const intervalId = setInterval(() => {
+    let intervalId: ReturnType<typeof setInterval> | null = null
+    if (typedMatch.timer_running) {
+      intervalId = setInterval(() => {
         const s = get()
-        const newElapsed = computeElapsed(s.runBaseElapsedSeconds, s.runStartedAt)
+        if (!s.match) return
+        const newElapsed = computeElapsed(s.match)
         set({ elapsedSeconds: newElapsed })
 
         if (newElapsed - s.lastPersist >= 30) {
-          get().persistTimer()
+          void get().persistTimer()
         }
       }, 1000)
-
-      const resumedBaseElapsed = Math.max(elapsed, snapshot.baseElapsedSeconds)
-      const resumedElapsed = computeElapsed(resumedBaseElapsed, snapshot.startedAt)
-      set({
-        match: typedMatch,
-        events: (events ?? []) as MatchEvent[],
-        elapsedSeconds: resumedElapsed,
-        timerRunning: true,
-        intervalId,
-        runStartedAt: snapshot.startedAt,
-        runBaseElapsedSeconds: resumedBaseElapsed,
-        lastPersist: elapsed,
-      })
-      return
     }
 
-    clearTimerSnapshot(typedMatch.id)
     set({
       match: typedMatch,
       events: (events ?? []) as MatchEvent[],
       elapsedSeconds: elapsed,
-      timerRunning: false,
-      runStartedAt: null,
-      runBaseElapsedSeconds: elapsed,
-      lastPersist: elapsed,
+      timerRunning: typedMatch.timer_running,
+      intervalId,
+      lastPersist: typedMatch[activeHalfField(typedMatch.current_half)],
     })
   },
 
@@ -159,104 +103,154 @@ export const useMatchStore = create<MatchState>((set, get) => ({
     const state = get()
     if (state.timerRunning || !state.match) return
 
-    const startedAt = Date.now()
-    const baseElapsedSeconds = state.elapsedSeconds
+    const startedAt = new Date().toISOString()
+    const currentElapsed = computeElapsed(state.match)
+    const field = activeHalfField(state.match.current_half)
 
-    // Auto-advance status if pending
-    const { match } = state
-    if (match.status === 'pending' || match.status === 'half_time') {
-      const newStatus: MatchStatus = match.current_half === 'first' ? 'first_half' : 'second_half'
-      safeUpdate('matches', { status: newStatus, updated_at: new Date().toISOString() }, { id: match.id })
-        .then(() => {
-          set(s => ({ match: s.match ? { ...s.match, status: newStatus } : null }))
-        })
+    const nextStatus: MatchStatus =
+      state.match.status === 'pending' || state.match.status === 'half_time'
+        ? (state.match.current_half === 'first' ? 'first_half' : 'second_half')
+        : state.match.status
+
+    const nextMatch: Match = {
+      ...state.match,
+      [field]: currentElapsed,
+      timer_running: true,
+      timer_started_at: startedAt,
+      status: nextStatus,
+      updated_at: startedAt,
     }
-
-    writeTimerSnapshot({
-      matchId: match.id,
-      half: match.current_half,
-      baseElapsedSeconds,
-      startedAt,
-      running: true,
-    })
 
     const intervalId = setInterval(() => {
       const s = get()
-      const newElapsed = computeElapsed(s.runBaseElapsedSeconds, s.runStartedAt)
+      if (!s.match) return
+      const newElapsed = computeElapsed(s.match)
       set({ elapsedSeconds: newElapsed })
 
-      // Persist every 30 seconds
       if (newElapsed - s.lastPersist >= 30) {
-        get().persistTimer()
+        void get().persistTimer()
       }
     }, 1000)
 
-    set({ timerRunning: true, intervalId, runStartedAt: startedAt, runBaseElapsedSeconds: baseElapsedSeconds })
+    set({
+      match: nextMatch,
+      elapsedSeconds: currentElapsed,
+      timerRunning: true,
+      intervalId,
+      lastPersist: currentElapsed,
+    })
+
+    void safeUpdate('matches', {
+      [field]: currentElapsed,
+      timer_running: true,
+      timer_started_at: startedAt,
+      status: nextStatus,
+      updated_at: startedAt,
+    }, { id: state.match.id })
   },
 
-  pauseTimer: () => {
-    const { intervalId, match, runBaseElapsedSeconds, runStartedAt } = get()
-    if (intervalId) clearInterval(intervalId)
-    const finalElapsed = computeElapsed(runBaseElapsedSeconds, runStartedAt)
-    if (match) clearTimerSnapshot(match.id)
-    set({ timerRunning: false, intervalId: null, elapsedSeconds: finalElapsed, runStartedAt: null, runBaseElapsedSeconds: finalElapsed })
-    get().persistTimer()
+  pauseTimer: async () => {
+    const state = get()
+    if (!state.match) return
+
+    if (state.intervalId) clearInterval(state.intervalId)
+
+    const currentElapsed = computeElapsed(state.match)
+    const field = activeHalfField(state.match.current_half)
+    const updatedAt = new Date().toISOString()
+
+    const nextMatch: Match = {
+      ...state.match,
+      [field]: currentElapsed,
+      timer_running: false,
+      timer_started_at: null,
+      updated_at: updatedAt,
+    }
+
+    set({
+      match: nextMatch,
+      elapsedSeconds: currentElapsed,
+      timerRunning: false,
+      intervalId: null,
+      lastPersist: currentElapsed,
+    })
+
+    await safeUpdate('matches', {
+      [field]: currentElapsed,
+      timer_running: false,
+      timer_started_at: null,
+      updated_at: updatedAt,
+    }, { id: state.match.id })
   },
 
   persistTimer: async () => {
-    const { match, elapsedSeconds, timerRunning, runBaseElapsedSeconds, runStartedAt } = get()
+    const { match } = get()
     if (!match) return
 
-    const currentElapsed = timerRunning ? computeElapsed(runBaseElapsedSeconds, runStartedAt) : elapsedSeconds
-    const field = match.current_half === 'first' ? 'first_half_seconds' : 'second_half_seconds'
-    await safeUpdate('matches', { [field]: currentElapsed, updated_at: new Date().toISOString() }, { id: match.id })
+    const currentElapsed = computeElapsed(match)
+    const field = activeHalfField(match.current_half)
+    const updatedAt = new Date().toISOString()
 
-    if (timerRunning && runStartedAt) {
-      const restartedAt = Date.now()
-      writeTimerSnapshot({
-        matchId: match.id,
-        half: match.current_half,
-        baseElapsedSeconds: currentElapsed,
-        startedAt: restartedAt,
-        running: true,
-      })
-      set({ lastPersist: currentElapsed, elapsedSeconds: currentElapsed, runBaseElapsedSeconds: currentElapsed, runStartedAt: restartedAt })
-      return
-    }
+    const nextMatch: Match = match.timer_running
+      ? {
+          ...match,
+          [field]: currentElapsed,
+          timer_started_at: updatedAt,
+          updated_at: updatedAt,
+        }
+      : {
+          ...match,
+          [field]: currentElapsed,
+          updated_at: updatedAt,
+        }
 
-    set({ lastPersist: currentElapsed, elapsedSeconds: currentElapsed, runBaseElapsedSeconds: currentElapsed })
+    set({
+      match: nextMatch,
+      elapsedSeconds: currentElapsed,
+      lastPersist: currentElapsed,
+    })
+
+    await safeUpdate('matches', {
+      [field]: currentElapsed,
+      ...(match.timer_running ? { timer_started_at: updatedAt } : {}),
+      updated_at: updatedAt,
+    }, { id: match.id })
   },
 
   switchHalf: async () => {
     const state = get()
     if (!state.match) return
 
-    // Pause first
-    if (state.timerRunning) {
-      const { intervalId } = state
-      if (intervalId) clearInterval(intervalId)
-      clearTimerSnapshot(state.match.id)
-    }
+    if (state.intervalId) clearInterval(state.intervalId)
 
-    // Persist current half time
-    await get().persistTimer()
-
+    const currentElapsed = computeElapsed(state.match)
+    const currentField = activeHalfField(state.match.current_half)
     const newHalf: MatchHalf = 'second'
     const newStatus: MatchStatus = 'half_time'
+    const updatedAt = new Date().toISOString()
 
     await safeUpdate('matches', {
+      [currentField]: currentElapsed,
       current_half: newHalf,
       status: newStatus,
-      updated_at: new Date().toISOString(),
+      timer_running: false,
+      timer_started_at: null,
+      updated_at: updatedAt,
     }, { id: state.match.id })
 
     set(s => ({
-      match: s.match ? { ...s.match, current_half: newHalf, status: newStatus } : null,
+      match: s.match ? {
+        ...s.match,
+        [currentField]: currentElapsed,
+        current_half: newHalf,
+        status: newStatus,
+        timer_running: false,
+        timer_started_at: null,
+        updated_at: updatedAt,
+      } : null,
       elapsedSeconds: s.match?.second_half_seconds ?? 0,
       timerRunning: false,
       intervalId: null,
-      runStartedAt: null,
-      runBaseElapsedSeconds: s.match?.second_half_seconds ?? 0,
       lastPersist: s.match?.second_half_seconds ?? 0,
     }))
   },
@@ -265,21 +259,33 @@ export const useMatchStore = create<MatchState>((set, get) => ({
     const state = get()
     if (!state.match) return
 
-    if (state.timerRunning) {
-      const { intervalId } = state
-      if (intervalId) clearInterval(intervalId)
-      clearTimerSnapshot(state.match.id)
-    }
-    await get().persistTimer()
+    if (state.intervalId) clearInterval(state.intervalId)
 
-    await safeUpdate('matches', { status: 'finished' as MatchStatus, updated_at: new Date().toISOString() }, { id: state.match.id })
+    const currentElapsed = computeElapsed(state.match)
+    const field = activeHalfField(state.match.current_half)
+    const updatedAt = new Date().toISOString()
+
+    await safeUpdate('matches', {
+      [field]: currentElapsed,
+      status: 'finished' as MatchStatus,
+      timer_running: false,
+      timer_started_at: null,
+      updated_at: updatedAt,
+    }, { id: state.match.id })
 
     set(s => ({
-      match: s.match ? { ...s.match, status: 'finished' } : null,
+      match: s.match ? {
+        ...s.match,
+        [field]: currentElapsed,
+        status: 'finished',
+        timer_running: false,
+        timer_started_at: null,
+        updated_at: updatedAt,
+      } : null,
+      elapsedSeconds: currentElapsed,
       timerRunning: false,
       intervalId: null,
-      runStartedAt: null,
-      runBaseElapsedSeconds: s.elapsedSeconds,
+      lastPersist: currentElapsed,
     }))
   },
 
@@ -303,7 +309,6 @@ export const useMatchStore = create<MatchState>((set, get) => ({
 
     const { data } = await safeInsert('match_events', newEvent)
 
-    // Optimistic score update
     set(s => {
       const events = [...s.events, data as MatchEvent]
       let homeScore = s.match?.home_score ?? 0
@@ -331,7 +336,6 @@ export const useMatchStore = create<MatchState>((set, get) => ({
     const { match } = get()
     if (!match) return
 
-    // Local-only event: remove from queue and local state
     if (eventId.startsWith('local-')) {
       await deleteFromQueue(eventId)
       const deleted = get().events.find(e => e.id === eventId)
@@ -358,7 +362,6 @@ export const useMatchStore = create<MatchState>((set, get) => ({
 
     await supabase.from('match_events').delete().eq('id', eventId)
 
-    // Reload scores from server after delete
     const { data: refreshed } = await supabase
       .from('matches')
       .select('home_score, away_score')
@@ -390,8 +393,6 @@ export const useMatchStore = create<MatchState>((set, get) => ({
       timerRunning: false,
       intervalId: null,
       lastPersist: 0,
-      runStartedAt: null,
-      runBaseElapsedSeconds: 0,
     })
   },
 }))
