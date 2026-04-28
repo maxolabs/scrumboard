@@ -14,6 +14,8 @@ export const CATEGORY_LABELS: Record<string, string> = {
   drop_goal: 'Drop',
   penalty_for: 'Penal a Favor',
   penalty_against: 'Penal en Contra',
+  yellow_card: 'Tarjeta Amarilla',
+  red_card: 'Tarjeta Roja',
   scrum: 'Scrum',
   lineout: 'Line',
   ruck: 'Ruck',
@@ -71,6 +73,9 @@ export const DEFAULT_BUTTONS: ButtonConfig[] = [
   // Penalties (infractions, no points)
   { id: 'pen-for', category: 'penalty_for', label: 'Penal a Favor', type: 'penalty', color: 'penalty_for', visible: true, team: 'ours' },
   { id: 'pen-against', category: 'penalty_against', label: 'Penal en Contra', type: 'penalty', color: 'penalty_against', visible: true, team: 'theirs' },
+  // Discipline
+  { id: 'yellow-card', category: 'yellow_card', label: 'Amarilla', type: 'observation', color: 'amber', visible: true },
+  { id: 'red-card', category: 'red_card', label: 'Roja', type: 'observation', color: 'penalty_against', visible: true },
   // Set pieces — team+outcome selected via dialog
   { id: 'scrum', category: 'scrum', label: 'Scrum', type: 'set_piece', color: 'default', visible: true },
   { id: 'lineout', category: 'lineout', label: 'Line', type: 'set_piece', color: 'default', visible: true },

@@ -40,6 +40,11 @@ export function MatchPdfDocument({ match, events }: Props) {
 
   const penFor = countEvents(events, 'penalty_for')
   const penAgainst = countEvents(events, 'penalty_against')
+  const yellowFor = countEvents(events, 'yellow_card', 'ours')
+  const yellowAgainst = countEvents(events, 'yellow_card', 'theirs')
+  const redFor = countEvents(events, 'red_card', 'ours')
+  const redAgainst = countEvents(events, 'red_card', 'theirs')
+  const cardEvents = events.filter(e => e.category === 'yellow_card' || e.category === 'red_card')
 
   const scoringEvents = events.filter(e => e.points > 0)
   const firstHalf = scoringEvents.filter(e => e.half === 'first')
@@ -132,6 +137,21 @@ export function MatchPdfDocument({ match, events }: Props) {
           <Text style={s.sectionTitle}>Penales</Text>
           <Text style={s.bullet}>A favor: {penFor}</Text>
           <Text style={s.bullet}>En contra: {penAgainst}</Text>
+        </View>
+
+        <View style={s.fullSection}>
+          <Text style={s.sectionTitle}>Tarjetas</Text>
+          <Text style={s.bullet}>Amarillas, nuestro equipo: {yellowFor}</Text>
+          <Text style={s.bullet}>Amarillas, rival: {yellowAgainst}</Text>
+          <Text style={s.bullet}>Rojas, nuestro equipo: {redFor}</Text>
+          <Text style={s.bullet}>Rojas, rival: {redAgainst}</Text>
+          {cardEvents.length > 0 && cardEvents.map((e, i) => (
+            <Text key={i} style={s.bullet}>
+              - {e.match_minute}' {eventLabel(e)}{e.player_number ? ` #${e.player_number}` : ''}
+              {e.notes ? ` (${e.notes})` : ''}
+            </Text>
+          ))}
+          {cardEvents.length === 0 && <Text style={s.bullet}>—</Text>}
         </View>
 
         {/* Result timeline */}

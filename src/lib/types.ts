@@ -4,6 +4,7 @@ export type EventTeam = 'ours' | 'theirs'
 export type EventCategory =
   | 'try' | 'conversion' | 'penalty_kick' | 'drop_goal'
   | 'penalty_for' | 'penalty_against'
+  | 'yellow_card' | 'red_card'
   | 'scrum' | 'lineout' | 'ruck' | 'maul' | 'kickoff' | 'kick'
   | 'obs_attack' | 'obs_defense'
   | 'obs_skills_catch_pass' | 'obs_skills_duel' | 'obs_skills_tackle' | 'obs_skills_ruck'
