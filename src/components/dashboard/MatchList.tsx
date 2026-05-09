@@ -4,10 +4,12 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import type { Match } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { CreateMatchDialog } from './CreateMatchDialog'
+import { DeleteMatchDialog } from '@/components/match/DeleteMatchDialog'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Trash2 } from 'lucide-react'
 
 const STATUS_LABELS: Record<string, string> = {
   pending: 'Pendiente',
@@ -62,23 +64,21 @@ export function MatchList() {
           const linkTo = match.status === 'finished'
             ? `/partido/${match.id}/revision`
             : `/partido/${match.id}`
+          const matchLabel = match.is_home
+            ? `${teamName} vs ${match.opponent_name}`
+            : `${match.opponent_name} vs ${teamName}`
 
           return (
             <Link key={match.id} to={linkTo}>
               <div className="flex items-center justify-between bg-card border border-border rounded-xl px-4 py-3.5 hover:bg-accent/50 transition-colors cursor-pointer group">
                 <div className="min-w-0">
-                  <p className="font-semibold text-sm truncate">
-                    {match.is_home
-                      ? `${teamName} vs ${match.opponent_name}`
-                      : `${match.opponent_name} vs ${teamName}`
-                    }
-                  </p>
+                  <p className="font-semibold text-sm truncate">{matchLabel}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {match.team?.category && `${match.team.category} · `}
                     {format(new Date(match.match_date), "d 'de' MMMM yyyy", { locale: es })}
                   </p>
                 </div>
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
                   {(isLive || match.status === 'finished') && (
                     <span className="text-lg font-bold tabular-nums">
                       {match.home_score} - {match.away_score}
@@ -87,6 +87,27 @@ export function MatchList() {
                   <Badge variant={STATUS_VARIANT[match.status]} className="text-[10px]">
                     {STATUS_LABELS[match.status]}
                   </Badge>
+                  <DeleteMatchDialog
+                    matchId={match.id}
+                    matchLabel={matchLabel}
+                    onDeleted={() =>
+                      setMatches(prev => prev.filter(m => m.id !== match.id))
+                    }
+                    trigger={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={e => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                        }}
+                        aria-label="Eliminar partido"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    }
+                  />
                   <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
                 </div>
               </div>

@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import type { Match, MatchEvent } from '@/lib/types'
 import { StatsGrid } from './StatsGrid'
 import { EventTimeline } from './EventTimeline'
 import { PdfDownloadButton } from '@/components/report/PdfDownloadButton'
+import { DeleteMatchDialog } from '@/components/match/DeleteMatchDialog'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 export function MatchReviewView() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const [match, setMatch] = useState<Match | null>(null)
   const [events, setEvents] = useState<MatchEvent[]>([])
   const [notes, setNotes] = useState('')
@@ -60,7 +62,19 @@ export function MatchReviewView() {
           </Link>
           <h1 className="text-xl font-bold">Revisión del partido</h1>
         </div>
-        <PdfDownloadButton match={match} events={events} />
+        <div className="flex items-center gap-2">
+          <DeleteMatchDialog
+            matchId={match.id}
+            matchLabel={`${teamName} vs ${match.opponent_name}`}
+            onDeleted={() => navigate('/')}
+            trigger={
+              <Button variant="ghost" size="icon" aria-label="Eliminar partido">
+                <Trash2 className="h-5 w-5 text-destructive" />
+              </Button>
+            }
+          />
+          <PdfDownloadButton match={match} events={events} />
+        </div>
       </div>
 
       <div className="bg-primary text-primary-foreground rounded-lg p-4 text-center">
