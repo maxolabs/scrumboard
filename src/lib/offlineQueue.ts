@@ -32,9 +32,16 @@ function getDb() {
 
 function isNetworkError(err: unknown): boolean {
   if (!navigator.onLine) return true
-  if (err instanceof TypeError && err.message.includes('fetch')) return true
-  const msg = String((err as { message?: string })?.message ?? '')
-  return msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('network')
+  const e = err as { name?: string; message?: string } | null | undefined
+  const name = e?.name ?? ''
+  const msg = String(e?.message ?? '')
+  // AbortError / TimeoutError from fetch on flaky mobile connections
+  if (name === 'AbortError' || name === 'TimeoutError') return true
+  // Safari iOS throws TypeError("Load failed") for network drops; Chrome throws TypeError("Failed to fetch")
+  if (err instanceof TypeError) {
+    return msg === '' || /fetch|network|load failed/i.test(msg)
+  }
+  return /failed to fetch|networkerror|network|load failed|timeout/i.test(msg)
 }
 
 /**
@@ -98,9 +105,14 @@ export async function safeUpdate(
   }
 
   const db = await getDb()
-  // Deduplicate: remove older updates for same table+filter
+  // Merge with any prior queued updates for the same (table, filter).
+  // Older field values are preserved; only fields present in the newer payload overwrite.
+  // The merged entry keeps the oldest createdAt so it stays in its temporal slot relative
+  // to other queued ops (e.g. inserts).
   const tx = db.transaction(STORE_NAME, 'readwrite')
   const store = tx.objectStore(STORE_NAME)
+  let mergedPayload: Record<string, unknown> = { ...payload }
+  let mergedCreatedAt = Date.now()
   let cursor = await store.openCursor()
   while (cursor) {
     const entry = cursor.value as QueueEntry
@@ -109,6 +121,8 @@ export async function safeUpdate(
       entry.table === table &&
       JSON.stringify(entry.filter) === JSON.stringify(filter)
     ) {
+      mergedPayload = { ...entry.payload, ...mergedPayload }
+      mergedCreatedAt = Math.min(mergedCreatedAt, entry.createdAt)
       await cursor.delete()
     }
     cursor = await cursor.continue()
@@ -118,9 +132,9 @@ export async function safeUpdate(
   const entry: Omit<QueueEntry, 'id'> = {
     operation: 'update',
     table,
-    payload,
+    payload: mergedPayload,
     filter,
-    createdAt: Date.now(),
+    createdAt: mergedCreatedAt,
   }
   await db.add(STORE_NAME, entry)
   return { queued: true }
