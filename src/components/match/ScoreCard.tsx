@@ -1,11 +1,24 @@
+import { useState } from 'react'
 import { useMatchStore } from '@/stores/matchStore'
 import { formatTime } from '@/lib/utils'
 import { HALF_LABELS } from '@/lib/constants'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Play, Pause, ArrowRight, Flag } from 'lucide-react'
 
 export function ScoreCard() {
   const { match, elapsedSeconds, timerRunning, startTimer, pauseTimer, switchHalf, finishMatch } = useMatchStore()
+  const [confirmHalftime, setConfirmHalftime] = useState(false)
+  const [confirmFinish, setConfirmFinish] = useState(false)
+  const [busy, setBusy] = useState(false)
+
   if (!match) return null
 
   const teamName = match.team?.name ?? 'Mi equipo'
@@ -13,6 +26,26 @@ export function ScoreCard() {
   const rightName = match.is_home ? match.opponent_name : teamName
   const isFinished = match.status === 'finished'
   const isFirstHalf = match.current_half === 'first'
+
+  const handleSwitchHalf = async () => {
+    setBusy(true)
+    try {
+      await switchHalf()
+      setConfirmHalftime(false)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleFinishMatch = async () => {
+    setBusy(true)
+    try {
+      await finishMatch()
+      setConfirmFinish(false)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <div className="rounded-2xl bg-card border border-border overflow-hidden">
@@ -54,17 +87,55 @@ export function ScoreCard() {
               </Button>
             )}
             {isFirstHalf ? (
-              <Button variant="secondary" size="sm" className="rounded-lg gap-1.5" onClick={switchHalf}>
+              <Button variant="secondary" size="sm" className="rounded-lg gap-1.5" onClick={() => setConfirmHalftime(true)}>
                 <ArrowRight className="h-3.5 w-3.5" /> Entretiempo
               </Button>
             ) : (
-              <Button variant="destructive" size="sm" className="rounded-lg gap-1.5" onClick={finishMatch}>
+              <Button variant="destructive" size="sm" className="rounded-lg gap-1.5" onClick={() => setConfirmFinish(true)}>
                 <Flag className="h-3.5 w-3.5" /> Finalizar
               </Button>
             )}
           </div>
         )}
       </div>
+
+      <Dialog open={confirmHalftime} onOpenChange={v => !busy && setConfirmHalftime(v)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>¿Ir al entretiempo?</DialogTitle>
+            <DialogDescription>
+              Se guardará el tiempo del primer tiempo y el partido pasará a entretiempo.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmHalftime(false)} disabled={busy}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSwitchHalf} disabled={busy}>
+              {busy ? 'Guardando…' : 'Ir al entretiempo'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmFinish} onOpenChange={v => !busy && setConfirmFinish(v)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>¿Finalizar el partido?</DialogTitle>
+            <DialogDescription>
+              Se cerrará el partido. Después podrás revisar las estadísticas o reabrirlo si fue por error.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmFinish(false)} disabled={busy}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleFinishMatch} disabled={busy}>
+              {busy ? 'Finalizando…' : 'Finalizar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

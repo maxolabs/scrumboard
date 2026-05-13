@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { safeInsert, safeUpdate, deleteFromQueue } from '@/lib/offlineQueue'
 import type { Match, MatchEvent, MatchHalf, MatchStatus, EventTeam, EventOutcome } from '@/lib/types'
@@ -66,6 +67,7 @@ interface MatchState {
   pauseTimer: () => void
   switchHalf: () => Promise<void>
   finishMatch: () => Promise<void>
+  reopenMatch: () => Promise<void>
   addEvent: (params: {
     category: string
     team?: EventTeam | null
@@ -231,34 +233,47 @@ export const useMatchStore = create<MatchState>((set, get) => ({
     const state = get()
     if (!state.match) return
 
-    // Pause first
+    // Stop the timer cleanly first so persistTimer doesn't re-write a running snapshot.
     if (state.timerRunning) {
       const { intervalId } = state
       if (intervalId) clearInterval(intervalId)
+      const finalElapsed = computeElapsed(state.runBaseElapsedSeconds, state.runStartedAt)
       clearTimerSnapshot(state.match.id)
+      set({
+        timerRunning: false,
+        intervalId: null,
+        elapsedSeconds: finalElapsed,
+        runStartedAt: null,
+        runBaseElapsedSeconds: finalElapsed,
+      })
     }
 
-    // Persist current half time
-    await get().persistTimer()
+    try {
+      // Persist current half time (now sees timerRunning: false → no snapshot rewrite)
+      await get().persistTimer()
 
-    const newHalf: MatchHalf = 'second'
-    const newStatus: MatchStatus = 'half_time'
+      const newHalf: MatchHalf = 'second'
+      const newStatus: MatchStatus = 'half_time'
 
-    await safeUpdate('matches', {
-      current_half: newHalf,
-      status: newStatus,
-      updated_at: new Date().toISOString(),
-    }, { id: state.match.id })
+      await safeUpdate('matches', {
+        current_half: newHalf,
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+      }, { id: state.match.id })
 
-    set(s => ({
-      match: s.match ? { ...s.match, current_half: newHalf, status: newStatus } : null,
-      elapsedSeconds: s.match?.second_half_seconds ?? 0,
-      timerRunning: false,
-      intervalId: null,
-      runStartedAt: null,
-      runBaseElapsedSeconds: s.match?.second_half_seconds ?? 0,
-      lastPersist: s.match?.second_half_seconds ?? 0,
-    }))
+      set(s => ({
+        match: s.match ? { ...s.match, current_half: newHalf, status: newStatus } : null,
+        elapsedSeconds: s.match?.second_half_seconds ?? 0,
+        timerRunning: false,
+        intervalId: null,
+        runStartedAt: null,
+        runBaseElapsedSeconds: s.match?.second_half_seconds ?? 0,
+        lastPersist: s.match?.second_half_seconds ?? 0,
+      }))
+    } catch (err) {
+      console.error('switchHalf failed', err)
+      toast.error('No se pudo cambiar al entretiempo. Reintenta.')
+    }
   },
 
   finishMatch: async () => {
@@ -268,19 +283,51 @@ export const useMatchStore = create<MatchState>((set, get) => ({
     if (state.timerRunning) {
       const { intervalId } = state
       if (intervalId) clearInterval(intervalId)
+      const finalElapsed = computeElapsed(state.runBaseElapsedSeconds, state.runStartedAt)
       clearTimerSnapshot(state.match.id)
+      set({
+        timerRunning: false,
+        intervalId: null,
+        elapsedSeconds: finalElapsed,
+        runStartedAt: null,
+        runBaseElapsedSeconds: finalElapsed,
+      })
     }
-    await get().persistTimer()
 
-    await safeUpdate('matches', { status: 'finished' as MatchStatus, updated_at: new Date().toISOString() }, { id: state.match.id })
+    try {
+      await get().persistTimer()
 
-    set(s => ({
-      match: s.match ? { ...s.match, status: 'finished' } : null,
-      timerRunning: false,
-      intervalId: null,
-      runStartedAt: null,
-      runBaseElapsedSeconds: s.elapsedSeconds,
-    }))
+      await safeUpdate('matches', { status: 'finished' as MatchStatus, updated_at: new Date().toISOString() }, { id: state.match.id })
+
+      set(s => ({
+        match: s.match ? { ...s.match, status: 'finished' } : null,
+        timerRunning: false,
+        intervalId: null,
+        runStartedAt: null,
+        runBaseElapsedSeconds: s.elapsedSeconds,
+      }))
+    } catch (err) {
+      console.error('finishMatch failed', err)
+      toast.error('No se pudo finalizar el partido. Reintenta.')
+    }
+  },
+
+  reopenMatch: async () => {
+    const state = get()
+    if (!state.match) return
+    if (state.match.status !== 'finished') return
+
+    const restoredStatus: MatchStatus = state.match.current_half === 'first' ? 'first_half' : 'second_half'
+    try {
+      await safeUpdate('matches', { status: restoredStatus, updated_at: new Date().toISOString() }, { id: state.match.id })
+      set(s => ({
+        match: s.match ? { ...s.match, status: restoredStatus } : null,
+      }))
+      toast.success('Partido reabierto')
+    } catch (err) {
+      console.error('reopenMatch failed', err)
+      toast.error('No se pudo reabrir el partido. Reintenta.')
+    }
   },
 
   addEvent: async ({ category, team, outcome, points, playerNumber, notes }) => {
