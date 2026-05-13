@@ -17,6 +17,7 @@ export function ButtonPanel() {
   const [dialogButton, setDialogButton] = useState<ButtonConfig | null>(null)
   const [teamPickButton, setTeamPickButton] = useState<ButtonConfig | null>(null)
   const [teamPickNotes, setTeamPickNotes] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => { load() }, [load])
 
@@ -28,7 +29,7 @@ export function ButtonPanel() {
   )
 
   const handleTap = (btn: ButtonConfig) => {
-    if (!isMatchActive) return
+    if (!isMatchActive || submitting) return
 
     // Set piece, observation, or custom with notes → open full dialog
     if (btn.type === 'set_piece' || btn.type === 'observation' || btn.type === 'custom_note') {
@@ -43,33 +44,49 @@ export function ButtonPanel() {
     }
 
     // Penalty (pre-set team) → instant event
-    handleInstantEvent(btn, btn.team ?? null)
+    void handleInstantEvent(btn, btn.team ?? null)
   }
 
   const closeTeamDialog = () => {
+    if (submitting) return
     setTeamPickButton(null)
     setTeamPickNotes('')
   }
 
   const handleTeamSelect = async (team: EventTeam) => {
-    if (!teamPickButton) return
-    await handleInstantEvent(teamPickButton, team, isTeamPickNoteEnabled ? teamPickNotes.trim() : '')
-    closeTeamDialog()
+    if (!teamPickButton || submitting) return
+    const ok = await handleInstantEvent(
+      teamPickButton,
+      team,
+      isTeamPickNoteEnabled ? teamPickNotes.trim() : '',
+    )
+    if (ok) {
+      setTeamPickButton(null)
+      setTeamPickNotes('')
+    }
   }
 
   const handleInstantEvent = async (btn: ButtonConfig, team: EventTeam | null, notes = '') => {
-    await addEvent({
-      category: btn.category,
-      team,
-      points: btn.points,
-      notes,
-    })
-
-    const label = btn.label
-    const teamLabel = team ? ` ${TEAM_LABELS[team]}` : ''
-    const minute = Math.floor(elapsedSeconds / 60)
-    const halfLabel = match ? HALF_LABELS[match.current_half] : ''
-    toast.success(`${label}${teamLabel} — Min ${minute}' ${halfLabel}`)
+    setSubmitting(true)
+    try {
+      await addEvent({
+        category: btn.category,
+        team,
+        points: btn.points,
+        notes,
+      })
+      const label = btn.label
+      const teamLabel = team ? ` ${TEAM_LABELS[team]}` : ''
+      const minute = Math.floor(elapsedSeconds / 60)
+      const halfLabel = match ? HALF_LABELS[match.current_half] : ''
+      toast.success(`${label}${teamLabel} — Min ${minute}' ${halfLabel}`)
+      return true
+    } catch {
+      toast.error('No se pudo registrar el evento. Reintenta.')
+      return false
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -119,15 +136,17 @@ export function ButtonPanel() {
               <Button
                 className="flex-1 h-14 text-base font-semibold rounded-xl"
                 onClick={() => handleTeamSelect('ours')}
+                disabled={submitting}
               >
-                Nuestro
+                {submitting ? 'Registrando…' : 'Nuestro'}
               </Button>
               <Button
                 variant="secondary"
                 className="flex-1 h-14 text-base font-semibold rounded-xl"
                 onClick={() => handleTeamSelect('theirs')}
+                disabled={submitting}
               >
-                Rival
+                {submitting ? 'Registrando…' : 'Rival'}
               </Button>
             </div>
           </div>

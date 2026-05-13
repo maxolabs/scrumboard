@@ -164,13 +164,17 @@ export const useMatchStore = create<MatchState>((set, get) => ({
     const startedAt = Date.now()
     const baseElapsedSeconds = state.elapsedSeconds
 
-    // Auto-advance status if pending
+    // Auto-advance status if pending. Update local state optimistically so the UI
+    // (e.g. ButtonPanel's isMatchActive check) unblocks immediately even if the
+    // write is queued offline or rejected.
     const { match } = state
     if (match.status === 'pending' || match.status === 'half_time') {
       const newStatus: MatchStatus = match.current_half === 'first' ? 'first_half' : 'second_half'
+      set(s => ({ match: s.match ? { ...s.match, status: newStatus } : null }))
       safeUpdate('matches', { status: newStatus, updated_at: new Date().toISOString() }, { id: match.id })
-        .then(() => {
-          set(s => ({ match: s.match ? { ...s.match, status: newStatus } : null }))
+        .catch(err => {
+          console.error('startTimer status update failed', err)
+          toast.error('No se pudo actualizar el estado del partido.')
         })
     }
 
@@ -348,11 +352,18 @@ export const useMatchStore = create<MatchState>((set, get) => ({
       notes: notes ?? '',
     }
 
-    const { data } = await safeInsert('match_events', newEvent)
+    let inserted: MatchEvent
+    try {
+      const res = await safeInsert('match_events', newEvent)
+      inserted = res.data as unknown as MatchEvent
+    } catch (err) {
+      console.error('addEvent failed', err)
+      throw err
+    }
 
     // Optimistic score update
     set(s => {
-      const events = [...s.events, data as MatchEvent]
+      const events = [...s.events, inserted]
       let homeScore = s.match?.home_score ?? 0
       let awayScore = s.match?.away_score ?? 0
 
@@ -423,8 +434,13 @@ export const useMatchStore = create<MatchState>((set, get) => ({
   updateNotes: async (notes) => {
     const { match } = get()
     if (!match) return
-    await safeUpdate('matches', { notes, updated_at: new Date().toISOString() }, { id: match.id })
-    set(s => ({ match: s.match ? { ...s.match, notes } : null }))
+    try {
+      await safeUpdate('matches', { notes, updated_at: new Date().toISOString() }, { id: match.id })
+      set(s => ({ match: s.match ? { ...s.match, notes } : null }))
+    } catch (err) {
+      console.error('updateNotes failed', err)
+      throw err
+    }
   },
 
   cleanup: () => {

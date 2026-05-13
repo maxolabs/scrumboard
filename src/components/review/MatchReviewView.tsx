@@ -34,13 +34,23 @@ export function MatchReviewView() {
     })
   }, [id])
 
+  const [savingNotes, setSavingNotes] = useState(false)
+
   const saveNotes = async () => {
-    if (!match) return
-    await supabase
-      .from('matches')
-      .update({ notes, updated_at: new Date().toISOString() })
-      .eq('id', match.id)
-    toast.success('Notas guardadas')
+    if (!match || savingNotes) return
+    setSavingNotes(true)
+    try {
+      const { error } = await supabase
+        .from('matches')
+        .update({ notes, updated_at: new Date().toISOString() })
+        .eq('id', match.id)
+      if (error) throw error
+      toast.success('Notas guardadas')
+    } catch {
+      toast.error('No se pudieron guardar las notas. Reintenta.')
+    } finally {
+      setSavingNotes(false)
+    }
   }
 
   if (loading || !match) {
@@ -97,7 +107,9 @@ export function MatchReviewView() {
           rows={4}
           placeholder="Propuesta para el próximo partido..."
         />
-        <Button onClick={saveNotes} size="sm">Guardar notas</Button>
+        <Button onClick={saveNotes} size="sm" disabled={savingNotes}>
+          {savingNotes ? 'Guardando…' : 'Guardar notas'}
+        </Button>
       </div>
     </div>
   )
