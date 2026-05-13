@@ -106,13 +106,12 @@ export async function safeUpdate(
 
   const db = await getDb()
   // Merge with any prior queued updates for the same (table, filter).
-  // Older field values are preserved; only fields present in the newer payload overwrite.
-  // The merged entry keeps the oldest createdAt so it stays in its temporal slot relative
-  // to other queued ops (e.g. inserts).
+  // Replay queued entries oldest-first so newer values overwrite older ones per field,
+  // then apply the just-arrived payload on top so the latest caller always wins.
+  // Keep the oldest createdAt so the merged entry stays in temporal slot vs other ops.
   const tx = db.transaction(STORE_NAME, 'readwrite')
   const store = tx.objectStore(STORE_NAME)
-  let mergedPayload: Record<string, unknown> = { ...payload }
-  let mergedCreatedAt = Date.now()
+  const matched: QueueEntry[] = []
   let cursor = await store.openCursor()
   while (cursor) {
     const entry = cursor.value as QueueEntry
@@ -121,12 +120,19 @@ export async function safeUpdate(
       entry.table === table &&
       JSON.stringify(entry.filter) === JSON.stringify(filter)
     ) {
-      mergedPayload = { ...entry.payload, ...mergedPayload }
-      mergedCreatedAt = Math.min(mergedCreatedAt, entry.createdAt)
+      matched.push(entry)
       await cursor.delete()
     }
     cursor = await cursor.continue()
   }
+  matched.sort((a, b) => a.createdAt - b.createdAt)
+  let mergedPayload: Record<string, unknown> = {}
+  let mergedCreatedAt = Date.now()
+  for (const entry of matched) {
+    mergedPayload = { ...mergedPayload, ...entry.payload }
+    mergedCreatedAt = Math.min(mergedCreatedAt, entry.createdAt)
+  }
+  mergedPayload = { ...mergedPayload, ...payload }
   await tx.done
 
   const entry: Omit<QueueEntry, 'id'> = {

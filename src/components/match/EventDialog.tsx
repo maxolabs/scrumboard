@@ -29,6 +29,7 @@ export function EventDialog({ button, open, onClose }: Props) {
   const [notes, setNotes] = useState('')
   const [playerNumber, setPlayerNumber] = useState('')
   const [skillCategory, setSkillCategory] = useState<string>(SKILL_OPTIONS[0].value)
+  const [submitting, setSubmitting] = useState(false)
 
   const isSetPiece = button?.type === 'set_piece'
   const isObservation = button?.type === 'observation'
@@ -53,26 +54,36 @@ export function EventDialog({ button, open, onClose }: Props) {
   }
 
   const handleClose = () => {
+    if (submitting) return
     resetForm()
     onClose()
   }
 
   const handleSubmit = async () => {
-    await addEvent({
-      category: resolvedCategory,
-      team: isSetPiece ? team : (button.team ?? null),
-      outcome: isSetPiece ? outcome : null,
-      notes: notes.trim(),
-      playerNumber: isPlayerObs && playerNumber ? parseInt(playerNumber, 10) : null,
-    })
+    if (submitting) return
+    setSubmitting(true)
+    try {
+      await addEvent({
+        category: resolvedCategory,
+        team: isSetPiece ? team : (button.team ?? null),
+        outcome: isSetPiece ? outcome : null,
+        notes: notes.trim(),
+        playerNumber: isPlayerObs && playerNumber ? parseInt(playerNumber, 10) : null,
+      })
 
-    const label = isSkillsFlow
-      ? SKILL_OPTIONS.find(option => option.value === skillCategory)?.label ?? button.label
-      : button.label
-    const halfLabel = match ? HALF_LABELS[match.current_half] : ''
-    toast.success(`${label} — Min ${minute}' ${halfLabel}`)
+      const label = isSkillsFlow
+        ? SKILL_OPTIONS.find(option => option.value === skillCategory)?.label ?? button.label
+        : button.label
+      const halfLabel = match ? HALF_LABELS[match.current_half] : ''
+      toast.success(`${label} — Min ${minute}' ${halfLabel}`)
 
-    handleClose()
+      resetForm()
+      onClose()
+    } catch {
+      toast.error('No se pudo registrar el evento. Reintenta.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -161,8 +172,8 @@ export function EventDialog({ button, open, onClose }: Props) {
             </div>
           )}
 
-          <Button className="w-full" onClick={handleSubmit}>
-            Registrar
+          <Button className="w-full" onClick={handleSubmit} disabled={submitting}>
+            {submitting ? 'Registrando…' : 'Registrar'}
           </Button>
         </div>
       </DialogContent>

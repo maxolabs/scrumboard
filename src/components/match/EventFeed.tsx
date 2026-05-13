@@ -1,13 +1,36 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { useMatchStore } from '@/stores/matchStore'
 import { eventLabel } from '@/lib/utils'
 import { HALF_LABELS } from '@/lib/constants'
 import { Button } from '@/components/ui/button'
-import { Trash2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Trash2, Check, ChevronDown, ChevronUp } from 'lucide-react'
+
+const CONFIRM_TIMEOUT_MS = 3000
 
 export function EventFeed() {
   const { events, deleteEvent } = useMatchStore()
   const [expanded, setExpanded] = useState(false)
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!confirmingId) return
+    const t = setTimeout(() => setConfirmingId(null), CONFIRM_TIMEOUT_MS)
+    return () => clearTimeout(t)
+  }, [confirmingId])
+
+  const handleDeleteClick = async (id: string) => {
+    if (confirmingId !== id) {
+      setConfirmingId(id)
+      return
+    }
+    setConfirmingId(null)
+    try {
+      await deleteEvent(id)
+    } catch {
+      toast.error('No se pudo eliminar el evento. Reintenta.')
+    }
+  }
 
   const sortedEvents = [...events].reverse()
   const displayEvents = expanded ? sortedEvents : sortedEvents.slice(0, 5)
@@ -46,12 +69,21 @@ export function EventFeed() {
               )}
             </div>
             <Button
-              variant="ghost"
+              variant={confirmingId === event.id ? 'destructive' : 'ghost'}
               size="icon"
-              className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-              onClick={() => deleteEvent(event.id)}
+              className={
+                confirmingId === event.id
+                  ? 'h-7 w-7 shrink-0'
+                  : 'h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive'
+              }
+              onClick={() => handleDeleteClick(event.id)}
+              aria-label={confirmingId === event.id ? 'Confirmar eliminación' : 'Eliminar evento'}
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              {confirmingId === event.id ? (
+                <Check className="h-3.5 w-3.5" />
+              ) : (
+                <Trash2 className="h-3.5 w-3.5" />
+              )}
             </Button>
           </div>
         ))}

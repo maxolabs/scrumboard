@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Trash2, Plus } from 'lucide-react'
 import { toast } from 'sonner'
+import { DeleteTeamDialog } from './DeleteTeamDialog'
 
 export function TeamManager() {
   const { user } = useAuthStore()
@@ -53,16 +54,6 @@ export function TeamManager() {
     }
   }
 
-  const handleDelete = async (id: string) => {
-    const { error } = await supabase.from('teams').delete().eq('id', id)
-    if (error) {
-      toast.error('Error al eliminar equipo')
-      return
-    }
-    toast.success('Equipo eliminado')
-    fetchTeams()
-  }
-
   return (
     <div className="space-y-4">
       <Card className="max-w-md">
@@ -98,9 +89,16 @@ export function TeamManager() {
                 <p className="font-medium">{team.name}</p>
                 <p className="text-sm text-muted-foreground">{team.category}</p>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => handleDelete(team.id)}>
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
+              <DeleteTeamDialog
+                teamId={team.id}
+                teamName={team.name}
+                onDeleted={fetchTeams}
+                trigger={
+                  <Button variant="ghost" size="icon" aria-label="Eliminar equipo">
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                }
+              />
             </CardContent>
           </Card>
         ))}
