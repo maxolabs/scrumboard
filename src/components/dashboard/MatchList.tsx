@@ -69,8 +69,14 @@ export function MatchList() {
             : `${match.opponent_name} vs ${teamName}`
 
           return (
-            <Link key={match.id} to={linkTo}>
-              <div className="flex items-center justify-between bg-card border border-border rounded-xl px-4 py-3.5 hover:bg-accent/50 transition-colors cursor-pointer group">
+            <div
+              key={match.id}
+              className="flex items-center gap-2 pr-3 bg-card border border-border rounded-xl hover:bg-accent/50 transition-colors group"
+            >
+              <Link
+                to={linkTo}
+                className="flex items-center justify-between flex-1 min-w-0 gap-2 pl-4 py-3.5 cursor-pointer"
+              >
                 <div className="min-w-0">
                   <p className="font-semibold text-sm truncate">{matchLabel}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
@@ -87,31 +93,27 @@ export function MatchList() {
                   <Badge variant={STATUS_VARIANT[match.status]} className="text-[10px]">
                     {STATUS_LABELS[match.status]}
                   </Badge>
-                  <DeleteMatchDialog
-                    matchId={match.id}
-                    matchLabel={matchLabel}
-                    onDeleted={() =>
-                      setMatches(prev => prev.filter(m => m.id !== match.id))
-                    }
-                    trigger={
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={e => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                        }}
-                        aria-label="Eliminar partido"
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    }
-                  />
-                  <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
                 </div>
-              </div>
-            </Link>
+              </Link>
+              <DeleteMatchDialog
+                matchId={match.id}
+                matchLabel={matchLabel}
+                onDeleted={() =>
+                  setMatches(prev => prev.filter(m => m.id !== match.id))
+                }
+                trigger={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    aria-label="Eliminar partido"
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                }
+              />
+              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
+            </div>
           )
         })}
         {matches.length === 0 && (
