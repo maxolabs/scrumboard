@@ -79,8 +79,6 @@ export const DEFAULT_BUTTONS: ButtonConfig[] = [
   // Set pieces — team+outcome selected via dialog
   { id: 'scrum', category: 'scrum', label: 'Scrum', type: 'set_piece', color: 'default', visible: true },
   { id: 'lineout', category: 'lineout', label: 'Line', type: 'set_piece', color: 'default', visible: true },
-  { id: 'ruck', category: 'ruck', label: 'Ruck', type: 'set_piece', color: 'default', visible: true },
-  { id: 'maul', category: 'maul', label: 'Maul', type: 'set_piece', color: 'default', visible: true },
   // Observations — restrained by default
   { id: 'obs-attack', category: 'obs_attack', label: 'Ataque', type: 'observation', color: 'default', visible: true },
   { id: 'obs-defense', category: 'obs_defense', label: 'Defensa', type: 'observation', color: 'default', visible: true },
